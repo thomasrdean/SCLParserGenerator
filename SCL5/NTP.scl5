@@ -1,0 +1,23 @@
+NTP DEFINITIONS ::= BEGIN
+
+   EXPORTS PDU;
+   
+PDU ::= SEQUENCE {
+   flags  INTEGER (SIZE 1 BYTES),
+   peerStratum INTEGER (SIZE 1 BYTES),
+   peerInterval INTEGER (SIZE 1 BYTES),
+   peerPrecision INTEGER (SIZE 1 BYTES),
+   rootDelay INTEGER (SIZE 4 BYTES),
+   rootDispersion INTEGER (SIZE 4 BYTES),
+   referenceId INTEGER (SIZE 4 BYTES),
+   referenceTS INTEGER (SIZE 8 BYTES),
+   originTS INTEGER (SIZE 8 BYTES),
+   recieveTS INTEGER (SIZE 8 BYTES),
+   transmitTS INTEGER (SIZE 8 BYTES)
+} (ENCODED BY CUSTOM)
+<transfer>
+   Back{ (flags & 56) == 32 }
+   -- Callback
+</transfer>
+
+END

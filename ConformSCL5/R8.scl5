@@ -1,0 +1,34 @@
+
+R8 DEFINITIONS ::= BEGIN
+
+    EXPORTS PDU;
+
+    PDU ::= (R81 | R82 | R83)
+
+    R81 ::= SEQUENCE {
+	c INTEGER (SIZE 1 BYTES),
+	d INTEGER (SIZE 4 BYTES),
+	e INTEGER (SIZE 4 BYTES),
+    } (ENCODED BY CUSTOM)
+    <transfer>
+	Back{c == 10 }
+    </transfer>
+
+    R82 ::= SEQUENCE {
+	a INTEGER (SIZE 1 BYTES),
+	b INTEGER (SIZE 4 BYTES),
+    } (ENCODED BY CUSTOM)
+    <transfer>
+	Back{a == 10 }
+    </transfer>
+
+
+    R83 ::= SEQUENCE {
+	c INTEGER (SIZE 1 BYTES),
+	d INTEGER (SIZE 4 BYTES),
+	e INTEGER (SIZE 4 BYTES),
+    } (ENCODED BY CUSTOM)
+    <transfer>
+	Back{c == 20 }
+    </transfer>
+END

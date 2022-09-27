@@ -1,0 +1,334 @@
+
+-- DNS Protocol
+
+-- We parse the dns protocol as one packet format. The value of the flags
+-- field specifies what the dns message is.
+
+-- SCL only parses the binary form, it does not do any resolution. So the
+-- domain names are not assembled. That must be done by application code.
+-- One of the reasons is that SCL was built first as a fuzzing technology
+-- and later as an IDS technology. Since errors to fuzz may be in the
+-- encoding of names, and errors to check may also be in the encoding of
+-- names, this is left undone so that they fuzzers can manipulate name
+-- encoding and the ids can for check name encoding attacks.
+
+DNS DEFINITIONS ::= BEGIN
+
+	EXPORTS PDU;
+
+	-- main message format	
+	PDU ::= SEQUENCE {
+		transactionId  	INTEGER (SIZE 2 BYTES),
+		flags		OCTET STRING (SIZE 2 BYTES),
+		numQuestion	INTEGER (SIZE 2 BYTES),
+		numAnswer	INTEGER (SIZE 2 BYTES),
+		numAuthority	INTEGER (SIZE 2 BYTES),
+		numAdditional	INTEGER (SIZE 2 BYTES),
+		question  	SET OF Query (SIZE CONSTRAINED),
+		answer  	SET OF ResourceRecord (SIZE CONSTRAINED),
+		authority  	SET OF ResourceRecord (SIZE CONSTRAINED),
+		additional 	SET OF ResourceRecord (SIZE CONSTRAINED)
+	} (ENCODED BY CUSTOM)
+	<transfer>
+		Callback
+		Back { SRCPORT == 53 || DSTPORT == 53 }
+		Forward { CARDINALITY(question) == numQuestion }
+		Forward { CARDINALITY(answer) == numAnswer }
+		Forward { CARDINALITY(authority) == numAuthority }
+		Forward { CARDINALITY(additional) == numAdditional }
+		All Bytes Used
+	</transfer>
+
+	Query ::= SEQUENCE {
+		name	Domain (SIZE DEFINED),
+		type	INTEGER (SIZE 2 BYTES),
+		class	INTEGER (SIZE 2 BYTES)
+	}
+
+	-- used for answers, authority and additional fields
+	ResourceRecord ::= (
+		ResourceRecordA |
+		ResourceRecordNS |
+		ResourceRecordCNAME |
+		ResourceRecordSOA |
+		ResourceRecordPTR |
+		ResourceRecordMX |
+		ResourceRecordTXT |
+		ResourceRecordAAAA |
+		ResourceRecordOPT |
+		ResourceRecordDS |
+		ResourceRecordKEY |
+		ResourceRecordRRSIG |
+		ResourceRecordNSEC3  
+	)
+
+        -- IPV4 Address (1)
+	ResourceRecordA ::= SEQUENCE {
+		name		Domain (SIZE DEFINED),
+		type		INTEGER (SIZE 2 BYTES),
+		class		INTEGER (SIZE 2 BYTES),
+		timeToLive	INTEGER (SIZE 4 BYTES),
+		dataLength	INTEGER (SIZE 2 BYTES),
+		address		OCTET STRING (SIZE 4 BYTES) -- IPv4
+	}
+	<transfer>
+		Back { type == 1 } -- code for A
+	</transfer>
+
+	-- Name Server (2)
+	ResourceRecordNS ::= SEQUENCE {
+		name		Domain (SIZE DEFINED),
+		type		INTEGER (SIZE 2 BYTES),
+		class		INTEGER (SIZE 2 BYTES),
+		timeToLive	INTEGER (SIZE 4 BYTES),
+		dataLength	INTEGER (SIZE 2 BYTES),
+		nameServer	Domain (SIZE DEFINED)
+	}
+	<transfer>
+		Back { type == 2 } -- code for NS
+	</transfer>
+
+	-- MD(3)/MF(4) are obsolete, use MX
+	-- should add them for legacy requests
+
+	-- Canonical Name (5)
+	ResourceRecordCNAME ::= SEQUENCE {
+		name		Domain (SIZE DEFINED),
+		type		INTEGER (SIZE 2 BYTES),
+		class		INTEGER (SIZE 2 BYTES),
+		timeToLive	INTEGER (SIZE 4 BYTES),
+		dataLength	INTEGER (SIZE 2 BYTES),
+		cname		Domain (SIZE DEFINED)
+	}
+	<transfer>
+		Back { type == 5 } -- code for CNAME
+	</transfer>
+
+	-- Start of Zone of Authority (6)
+	ResourceRecordSOA ::= SEQUENCE {
+		name			Domain (SIZE DEFINED),
+		type			INTEGER (SIZE 2 BYTES),
+		class			INTEGER (SIZE 2 BYTES),
+		timeToLive		INTEGER (SIZE 4 BYTES),
+		dataLength		INTEGER (SIZE 2 BYTES),
+		primaryNameServer	Domain (SIZE DEFINED),
+		reponsibleAuthority	Domain (SIZE DEFINED),
+		serialNumber		INTEGER (SIZE 4 BYTES),
+		refreshInterval		INTEGER (SIZE 4 BYTES),
+		retryInterval		INTEGER (SIZE 4 BYTES),
+		expireLimit		INTEGER (SIZE 4 BYTES),
+		minimumTTL		INTEGER (SIZE 4 BYTES)
+	}
+	<transfer>
+		Back { type == 6 } -- code for SOA
+	</transfer>
+
+	-- MB(7) mail box domain (experimantal)
+	-- MG(8) mail group member (experimantal)
+	-- MR(9) mail rename name (experimantal)
+	-- NULL(10) null rr (experimantal)
+
+	-- WKS(11) Well Known Service (TODO)
+
+	-- PTR(12) POINTER find name given ipaddress
+	ResourceRecordPTR ::= SEQUENCE {
+		name		Domain (SIZE DEFINED),
+		type		INTEGER (SIZE 2 BYTES),
+		class		INTEGER (SIZE 2 BYTES),
+		timeToLive	INTEGER (SIZE 4 BYTES),
+		dataLength	INTEGER (SIZE 2 BYTES),
+		domainName	Domain (SIZE DEFINED)
+	}
+	<transfer>
+		Back { type == 12 } -- code for PTR
+	</transfer>
+
+	-- HINFO(13) Host Info (TODO)
+	-- MINFO(14) Mail Info (TODO)
+
+	-- MX(15) Mail Exchange(Server) (TODO)
+		-- should have two constraints apply to domain, one internal
+		-- which is based on word structure, the second is that the length
+		-- of preference and domain is given by data length
+	ResourceRecordMX ::= SEQUENCE {
+		name		Domain (SIZE DEFINED),
+		type		INTEGER (SIZE 2 BYTES),
+		class		INTEGER (SIZE 2 BYTES),
+		timeToLive	INTEGER (SIZE 4 BYTES),
+		dataLength	INTEGER (SIZE 2 BYTES),
+		prefernece	INTEGER (SIZE 2 BYTES),
+		mailExchange	Domain (SIZE DEFINED)
+	}
+	<transfer>
+		Back { type == 15 } -- code for MX
+	</transfer>
+
+	-- TXT (16) text comment on field
+	    -- should factor  text in to legnth + data, but need more docs.
+	ResourceRecordTXT ::= SEQUENCE {
+		name		Domain (SIZE DEFINED),
+		type		INTEGER (SIZE 2 BYTES),
+		class		INTEGER (SIZE 2 BYTES),
+		timeToLive	INTEGER (SIZE 4 BYTES),
+		dataLength	INTEGER (SIZE 2 BYTES),
+		text		OCTET STRING (SIZE CONSTRAINED)
+	}
+	<transfer>
+		Back { type == 16 } -- code for TXT
+		Forward { LENGTH(text) == dataLength }
+	</transfer>
+
+        -- AAAA(28) IPV6 Address
+	ResourceRecordAAAA ::= SEQUENCE {
+		name		Domain (SIZE DEFINED),
+		type		INTEGER (SIZE 2 BYTES),
+		class		INTEGER (SIZE 2 BYTES),
+		timeToLive	INTEGER (SIZE 4 BYTES),
+		dataLength	INTEGER (SIZE 2 BYTES),
+		address		OCTET STRING (SIZE 16 BYTES) -- IPv6
+	}
+	<transfer>
+		Back { type == 28 } -- code for AAAA
+	</transfer>
+
+
+        -- OPT(41) ????
+	ResourceRecordOPT ::= SEQUENCE {
+		name			Domain (SIZE DEFINED),
+		type			INTEGER (SIZE 2 BYTES),
+		udpPayloadSize		INTEGER (SIZE 2 BYTES),
+		higherBitsInExtdRcode	INTEGER (SIZE 1 BYTES),
+		EDNS0Version		INTEGER (SIZE 1 BYTES),
+		z			INTEGER (SIZE 2 BYTES),
+		dataLength		INTEGER (SIZE 2 BYTES)
+	}
+	<transfer>
+		Back { type == 41 } -- code for OPT
+	</transfer>
+
+	-- new resource record types (after rfc_1035)
+
+	ResourceRecordDS ::= SEQUENCE {
+                name            Domain (SIZE DEFINED),
+                type            INTEGER (SIZE 2 BYTES),
+                class           INTEGER (SIZE 2 BYTES),
+                timeToLive      INTEGER (SIZE 4 BYTES),
+                dataLength      INTEGER (SIZE 2 BYTES),
+                keyid           INTEGER (SIZE 2 BYTES),
+                alg             INTEGER (SIZE 1 BYTES),
+                digestType      INTEGER (SIZE 1 BYTES),
+                digest          OCTET STRING (SIZE 32 BYTES)
+        }
+        <transfer>
+                Back { type == 43 } -- code for Delegation signer
+        </transfer>
+
+        ResourceRecordRRSIG ::= SEQUENCE {
+                name            Domain (SIZE DEFINED),
+                type            INTEGER (SIZE 2 BYTES),
+                class           INTEGER (SIZE 2 BYTES),
+                timeToLive      INTEGER (SIZE 4 BYTES),
+                dataLength      INTEGER (SIZE 2 BYTES),
+                typeCov         INTEGER (SIZE 2 BYTES),
+                alg             INTEGER (SIZE 1 BYTES),
+                labels          INTEGER (SIZE 1 BYTES),
+                OrigtimeToLive  INTEGER (SIZE 4 BYTES),
+                SigExp          INTEGER (SIZE 4 BYTES),
+                SigInception    INTEGER (SIZE 4 BYTES),
+                keyTag          INTEGER (SIZE 2 BYTES),
+                signName        Domain (SIZE DEFINED),
+                signature       OCTET STRING (SIZE CONSTRAINED)
+        }
+        <transfer>
+                Back { type == 46 } -- code for RRSIG
+		Forward { LENGTH(signature) == dataLength - (POS(signature) - POS(typeCov)) }
+        </transfer>
+
+        ResourceRecordKEY ::= SEQUENCE {
+                name            Domain (SIZE DEFINED),
+                type            INTEGER (SIZE 2 BYTES),
+                class           INTEGER (SIZE 2 BYTES),
+		ttl		INTEGER (SIZE 4 BYTES),
+                dataLength      INTEGER (SIZE 2 BYTES),
+                flags           INTEGER (SIZE 2 BYTES),
+		protocol	INTEGER (SIZE 1 BYTES),
+		algorithm	INTEGER (SIZE 1 BYTES),
+		key		OCTET STRING (SIZE CONSTRAINED)
+        }
+        <transfer>
+                Back { type == 48 } -- code for DNSKEY
+		Forward { LENGTH(key) == dataLength - (POS(key) - POS(flags)) }
+        </transfer>
+
+        ResourceRecordNSEC3 ::= SEQUENCE {
+                name            Domain (SIZE DEFINED),
+                type            INTEGER (SIZE 2 BYTES),
+                class           INTEGER (SIZE 2 BYTES),
+                timeToLive      INTEGER (SIZE 4 BYTES),
+                dataLength      INTEGER (SIZE 2 BYTES),
+                alg             INTEGER (SIZE 1 BYTES),
+                flags           INTEGER (SIZE 1 BYTES),
+                iterations      INTEGER (SIZE 2 BYTES),
+                saltLength      INTEGER (SIZE 1 BYTES),
+                -- salt         ???
+                hashlength      INTEGER (SIZE 1 BYTES),
+                nexthash        OCTET STRING (SIZE CONSTRAINED),
+                typeMap         Map (SIZE DEFINED)
+                -- this really has to be a set of, with a length
+                -- of something like datalen - 5 - saltLength - 1 -hashLength
+                -- number of bytes left over from value in datalength
+        }
+        <transfer>
+                Back { type == 50 }
+                Forward  { LENGTH(nexthash) == hashlength }
+        </transfer>
+
+	Map ::= SEQUENCE {
+            mapNum      INTEGER (SIZE 1 BYTES),
+            length      INTEGER (SIZE 1 BYTES),
+            mapbits     OCTET STRING (SIZE CONSTRAINED)
+        }
+        <transfer>
+                Forward  { LENGTH(mapbits) == length }
+        </transfer>
+
+	-- domain name 
+
+	Domain ::= SEQUENCE {
+		words SET OF Word (SIZE CONSTRAINED)
+	}
+	<transfer>
+		Forward { TERMINATE(words) == EndWord }
+	</transfer>
+
+
+	Word ::= (InlineWord | EndWord)
+	EndWord ::= (ReferenceWord | NullWord)
+
+	InlineWord ::= SEQUENCE {
+		length	INTEGER (SIZE 1 BYTES) SAVEPOS,
+		letters	OCTET STRING (SIZE CONSTRAINED)
+	}
+	<transfer>
+		Forward { LENGTH(letters) == length }
+		-- Note: these constraints may be incomplete, but they seem to work well
+		Back { length != 0 }
+		Back { length != 192 && length != 193 } -- 192 is c0
+	</transfer>
+
+	ReferenceWord ::= SEQUENCE {
+		header INTEGER (SIZE 1 BYTES),
+		reference INTEGER (SIZE 1 BYTES)
+	}
+	<transfer>
+		Back { header == 192 || header == 193 } -- 192 is c0 note c1 is also a reference word, different offset I guess. probably header> 192 is the real constraint
+	</transfer>
+
+	NullWord ::= SEQUENCE {
+		header INTEGER (SIZE 1 BYTES)
+	}
+	<transfer>
+		Back { header == 0 }
+	</transfer>
+
+END

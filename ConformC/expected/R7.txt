@@ -1,0 +1,10 @@
+offset a = 0
+offset b = 2
+offset c = 4
+offset d = 6
+data=a1a2a3a4
+**********
+**********
+data=a1a3a3a4a5a6a7a8
+**********
+**********

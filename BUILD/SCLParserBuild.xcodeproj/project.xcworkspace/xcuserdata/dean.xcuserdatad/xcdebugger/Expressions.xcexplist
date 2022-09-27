@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VariablesViewState
+   version = "1.0">
+   <ContextStates>
+      <ContextState
+         contextName = "parseFULL_RTPS:RTPS_Generated.c">
+         <PersistentStrings>
+            <PersistentString
+               value = "thePDU">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+      <ContextState
+         contextName = "parseSETOF_SUBMESSAGE_End:RTPS_Generated.c">
+         <PersistentStrings>
+            <PersistentString
+               value = "(TOPICPARMS_RTPS[30])tmp.item.datawsub_rtps.serializeddata-&gt;topicdata">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+      <ContextState
+         contextName = "main:pmain.c">
+         <PersistentStrings>
+            <PersistentString
+               value = "thePDU-&gt;data[thePDU-&gt;curPos]">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+      <ContextState
+         contextName = "parsePDU_DNS:DNS_Generated.c">
+      </ContextState>
+      <ContextState
+         contextName = "parseQuery_DNS:DNS_Generated.c">
+         <PersistentStrings>
+            <PersistentString
+               value = "(Word_DNS *[3])query_dns-&gt;name.words">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+      <ContextState
+         contextName = "GLOBAL">
+         <PersistentStrings>
+            <PersistentString
+               value = "thePDU-&gt;data[thePDU-&gt;curPos]">
+            </PersistentString>
+         </PersistentStrings>
+      </ContextState>
+   </ContextStates>
+</VariablesViewState>

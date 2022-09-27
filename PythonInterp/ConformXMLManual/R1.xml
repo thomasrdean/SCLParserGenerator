@@ -1,0 +1,108 @@
+<?xml version="1.0"?>
+<!--
+R1 DEFINITIONS ::= BEGIN
+
+   EXPORTS PDU;
+
+   PDU ::= SEQUENCE {
+       a REAL    (SIZE 8 BYTES) LITTLEENDIAN,
+       b INTEGER (SIZE 8 BYTES) LITTLEENDIAN,
+       c REAL    (SIZE 4 BYTES) LITTLEENDIAN,
+       d INTEGER (SIZE 4 BYTES) LITTLEENDIAN,
+       e INTEGER (SIZE 2 BYTES) LITTLEENDIAN,
+       f INTEGER (SIZE 1 BYTES),
+   } (ENCODED BY CUSTOM)
+
+END
+-->
+<serialized-grammar>
+    <name>R1</name>
+    <exports><user-type>PDU_R1</user-type></exports>
+    <user-type-decl>
+	<record>
+	    <name>PDU_R1</name>
+	    <encoding>CUSTOM</encoding>
+	    <recordCat>SEQ</recordCat>
+	    <fields>
+		<field>
+		    <name>a</name>
+		    <type>a_PDU_R1</type>
+	        </field>
+		<field>
+		     <name>b</name>
+		     <type>b_PDU_R1</type>
+	        </field>
+	        <field>
+		    <name>c</name>
+		    <type>c_PDU_R1</type>
+		</field>
+	        <field>
+		    <name>d</name>
+		    <type>d_PDU_R1</type>
+	        </field>
+	        <field>
+		    <name>e</name>
+		    <type>e_PDU_R1</type>
+	        </field>
+	        <field>
+		    <name>f</name>
+		    <type>f_PDU_R1</type>
+	        </field>
+	    </fields>
+	</record>
+    </user-type-decl>
+    <user-type-decl>
+	<token>
+	   <name>a_PDU_R1</name>
+	   <type>REAL</type>
+	   <byte-size>8</byte-size>
+	   <endian>LITTLEENDIAN</endian>
+	    <text>Octet</text>
+	</token>
+    </user-type-decl>
+    <user-type-decl>
+	<token>
+	    <name>b_PDU_R1</name>
+	    <type>INTEGER</type>
+	    <byte-size>8</byte-size>
+	    <endian>LITTLEENDIAN</endian>
+	    <text>Octet</text>
+	</token>
+    </user-type-decl>
+    <user-type-decl>
+	<token>
+	    <name>c_PDU_R1</name>
+	    <type>REAL</type>
+	    <byte-size>4</byte-size>
+	    <endian>LITTLEENDIAN</endian>
+	    <text>Octet</text>
+	</token>
+    </user-type-decl>
+    <user-type-decl>
+	<token>
+	    <name>d_PDU_R1</name>
+	    <type>INTEGER</type>
+	    <byte-size>4</byte-size>
+	    <endian>LITTLEENDIAN</endian>
+	    <text>Octet</text>
+	</token>
+    </user-type-decl>
+    <user-type-decl>
+	<token>
+	    <name>e_PDU_R1</name>
+	    <type>INTEGER</type>
+	    <byte-size>2</byte-size>
+	    <endian>LITTLEENDIAN</endian>
+	    <text>Octet</text>
+	</token>
+    </user-type-decl>
+    <user-type-decl>
+	<token>
+	    <name>f_PDU_R1</name>
+	    <type>INTEGER</type>
+	    <byte-size>1</byte-size>
+	    <endian>LITTLEENDIAN</endian>
+	    <text>Octet</text>
+	</token>
+    </user-type-decl>
+</serialized-grammar>

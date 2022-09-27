@@ -1,0 +1,17 @@
+offset a = 0
+offset b = 8
+offset c = 16
+offset d = 20
+offset e = 24
+offset f = 26
+data=0000000000001240a8a7a6a5a4a3a2a100003642a4a3a2a1a2a1a5
+*Parse PDU*
+  a: 4.500000 
+  b: a1a2a3a4a5a6a7a8 
+  c: 45.500000 
+  d: a1a2a3a4 
+  e: a1a2 
+  f: a5 
+*END PDU*
+**********
+**********

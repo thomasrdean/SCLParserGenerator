@@ -1,0 +1,242 @@
+-- DNS Protocol
+
+DNS DEFINITIONS ::= BEGIN
+
+	EXPORTS PDU;
+
+	PDU ::= SEQUENCE {
+		transactionId  	INTEGER (SIZE 2 BYTES),
+		flags		  	OCTET STRING (SIZE 2 BYTES),
+		numQuestion		INTEGER (SIZE 2 BYTES),
+		numAnswer	  	INTEGER (SIZE 2 BYTES),
+		numAuthority	INTEGER (SIZE 2 BYTES),
+		numAdditional	INTEGER (SIZE 2 BYTES),
+		question  		SET OF Queryy (SIZE CONSTRAINED),
+		answer  		SET OF ResourceRecord1 (SIZE CONSTRAINED),
+		authority  		SET OF ResourceRecord2 (SIZE CONSTRAINED),
+		additional 		SET OF ResourceRecord3 (SIZE CONSTRAINED)
+	} (ENCODED BY CUSTOM)
+	<transfer>
+		-- Callback
+		Back{ SRCPORT==53 || DSTPORT==53  || SRCPORT == 5353 || DSTPORT == 5353}
+		Forward { CARDINALITY(question) == numQuestion }
+		Forward { CARDINALITY(answer) == numAnswer }
+		Forward { CARDINALITY(authority) == numAuthority }
+		Forward { CARDINALITY(additional) == numAdditional }
+	</transfer>
+
+	Queryy ::= SEQUENCE {
+		name	Domain (SIZE DEFINED),
+		type	INTEGER (SIZE 2 BYTES),
+		class	INTEGER (SIZE 2 BYTES)
+	}
+
+	ResourceRecord1 ::= (ResourceRecord)
+	ResourceRecord2 ::= (ResourceRecord)
+	ResourceRecord3 ::= (ResourceRecord)
+
+	ResourceRecord ::= (
+		ResourceRecordA |
+		ResourceRecordAAAA |
+		ResourceRecordCNAME |
+		ResourceRecordSOA |
+		ResourceRecordOPT |
+		ResourceRecordNS |
+		ResourceRecordKEY  |
+		ResourceRecordRRSIG |
+		ResourceRecordNSEC3 |
+		ResourceRecordDS
+	)
+	
+	ResourceRecordA ::= SEQUENCE {
+		name		Domain (SIZE DEFINED),
+		type		INTEGER (SIZE 2 BYTES),
+		class		INTEGER (SIZE 2 BYTES),
+		timeToLive	INTEGER (SIZE 4 BYTES),
+		dataLength	INTEGER (SIZE 2 BYTES),
+		address		OCTET STRING (SIZE 4 BYTES) -- IPv4
+	}
+	<transfer>
+		Back { type == 1 } -- code for A
+	</transfer>
+
+	ResourceRecordAAAA ::= SEQUENCE {
+		name		Domain (SIZE DEFINED),
+		type		INTEGER (SIZE 2 BYTES),
+		class		INTEGER (SIZE 2 BYTES),
+		timeToLive	INTEGER (SIZE 4 BYTES),
+		dataLength	INTEGER (SIZE 2 BYTES),
+		address		OCTET STRING (SIZE 16 BYTES) -- IPv6
+	}
+	<transfer>
+		Back { type == 28 } -- code for AAAA
+	</transfer>
+
+	ResourceRecordCNAME ::= SEQUENCE {
+		name		Domain (SIZE DEFINED),
+		type		INTEGER (SIZE 2 BYTES),
+		class		INTEGER (SIZE 2 BYTES),
+		timeToLive	INTEGER (SIZE 4 BYTES),
+		dataLength	INTEGER (SIZE 2 BYTES),
+		cname		Domain (SIZE DEFINED)
+	}
+	<transfer>
+		Back { type == 5 } -- code for CNAME
+	</transfer>
+
+	ResourceRecordSOA ::= SEQUENCE {
+		name				Domain (SIZE DEFINED),
+		type				INTEGER (SIZE 2 BYTES),
+		class				INTEGER (SIZE 2 BYTES),
+		timeToLive			INTEGER (SIZE 4 BYTES),
+		dataLength			INTEGER (SIZE 2 BYTES),
+		primaryNameServer	Domain (SIZE DEFINED),
+		reponsibleAuthority	Domain (SIZE DEFINED),
+		serialNumber		INTEGER (SIZE 4 BYTES),
+		refreshInterval		INTEGER (SIZE 4 BYTES),
+		retryInterval		INTEGER (SIZE 4 BYTES),
+		expireLimit			INTEGER (SIZE 4 BYTES),
+		minimumTTL			INTEGER (SIZE 4 BYTES)
+	}
+	<transfer>
+		Back { type == 6 } -- code for SOA
+	</transfer>
+
+	ResourceRecordOPT ::= SEQUENCE {
+		name						Domain (SIZE DEFINED),
+		type						INTEGER (SIZE 2 BYTES),
+		udpPayloadSize				INTEGER (SIZE 2 BYTES),
+		higherBitsInExtendedRcode	INTEGER (SIZE 1 BYTES),
+		EDNS0Version				INTEGER (SIZE 1 BYTES),
+		z							INTEGER (SIZE 2 BYTES),
+		dataLength					INTEGER (SIZE 2 BYTES)
+	}
+	<transfer>
+		Back { type == 41 } -- code for OPT
+	</transfer>
+
+	ResourceRecordNS ::= SEQUENCE {
+		name		Domain (SIZE DEFINED),
+		type		INTEGER (SIZE 2 BYTES),
+		class		INTEGER (SIZE 2 BYTES),
+		timeToLive	INTEGER (SIZE 4 BYTES),
+		dataLength	INTEGER (SIZE 2 BYTES),
+		nameServer	Domain (SIZE DEFINED)
+	}
+	<transfer>
+		Back { type == 2 } -- code for NS
+	</transfer>
+
+	ResourceRecordKEY ::= SEQUENCE {
+		name		Domain (SIZE DEFINED),
+		type		INTEGER (SIZE 2 BYTES),
+		class		INTEGER (SIZE 2 BYTES),
+	}
+	<transfer>
+		Back { type == 48 } -- code for DNSKEY
+	</transfer>
+
+	ResourceRecordRRSIG ::= SEQUENCE {
+		name		Domain (SIZE DEFINED),
+		type		INTEGER (SIZE 2 BYTES),
+		class		INTEGER (SIZE 2 BYTES),
+		timeToLive	INTEGER (SIZE 4 BYTES),
+		dataLength	INTEGER (SIZE 2 BYTES),
+		typeCov		INTEGER (SIZE 2 BYTES),
+		alg		INTEGER (SIZE 1 BYTES),
+		labels		INTEGER (SIZE 1 BYTES),
+		OrigtimeToLive	INTEGER (SIZE 4 BYTES),
+		SigExp   	INTEGER (SIZE 4 BYTES),
+		SigInception   	INTEGER (SIZE 4 BYTES),
+		keyTag   	INTEGER (SIZE 2 BYTES),
+		signName	Domain (SIZE DEFINED),
+		signature	OCTET STRING (SIZE 256 BYTES)
+	}
+	<transfer>
+		Back { type == 46 } -- code for RRSIG
+	</transfer>
+
+	ResourceRecordDS ::= SEQUENCE {
+		name		Domain (SIZE DEFINED),
+		type		INTEGER (SIZE 2 BYTES),
+		class		INTEGER (SIZE 2 BYTES),
+		timeToLive	INTEGER (SIZE 4 BYTES),
+		dataLength	INTEGER (SIZE 2 BYTES),
+		keyid		INTEGER (SIZE 2 BYTES),
+		alg		INTEGER (SIZE 1 BYTES),
+		digestType	INTEGER (SIZE 1 BYTES),
+		digest		OCTET STRING (SIZE 32 BYTES)
+	}
+	<transfer>
+		Back { type == 43 } -- code for Delegation signer
+	</transfer>
+
+	ResourceRecordNSEC3 ::= SEQUENCE {
+		name		Domain (SIZE DEFINED),
+		type		INTEGER (SIZE 2 BYTES),
+		class		INTEGER (SIZE 2 BYTES),
+		timeToLive	INTEGER (SIZE 4 BYTES),
+		dataLength	INTEGER (SIZE 2 BYTES),
+		alg		INTEGER (SIZE 1 BYTES),
+		flags		INTEGER (SIZE 1 BYTES),
+		iterations	INTEGER (SIZE 2 BYTES),
+		saltLength	INTEGER (SIZE 1 BYTES),
+		-- salt		???
+		hashlength	INTEGER (SIZE 1 BYTES),
+		nexthash	OCTET STRING (SIZE CONSTRAINED),
+		typeMap		Map (SIZE DEFINED)
+		-- this really has to be a set of, with a length
+		-- of something like datalen - 5 - saltLength - 1 -hashLength
+		-- number of bytes left over from value in datalength 
+	}
+	<transfer>
+		Back { type == 50 }
+		Forward  { LENGTH(nexthash) == hashlength }
+	</transfer>
+
+	Map ::= SEQUENCE {
+	    mapNum	INTEGER (SIZE 1 BYTES),
+	    length	INTEGER (SIZE 1 BYTES),
+	    mapbits	OCTET STRING (SIZE CONSTRAINED)
+	}
+	<transfer>
+		Forward  { LENGTH(mapbits) == length }
+	</transfer>
+
+	Domain ::= SEQUENCE {
+		words SET OF Word (SIZE CONSTRAINED)
+	}
+	<transfer>
+		Forward { TERMINATE(words) == EndWord }
+	</transfer>
+
+	Word ::= (InlineWord | EndWord)
+	EndWord ::= (ReferenceWord | NullWord)
+
+	InlineWord ::= SEQUENCE {
+		length	INTEGER (SIZE 1 BYTES) SAVEPOS,
+		letters	OCTET STRING (SIZE CONSTRAINED)
+	}
+	<transfer>
+		Forward { LENGTH(letters) == length }
+		-- Note: these constraints may be incomplete, but they seem to work well
+		Back { length != 0 }
+		Back { length != 192 } -- 192 is c0
+	</transfer>
+
+	ReferenceWord ::= SEQUENCE {
+		header INTEGER (SIZE 1 BYTES),
+		reference INTEGER (SIZE 1 BYTES)
+	}
+	<transfer>
+		Back { header == 192 } -- 192 is c0
+	</transfer>
+
+	NullWord ::= SEQUENCE {
+		header INTEGER (SIZE 1 BYTES)
+	}
+	<transfer>
+		Back { header == 0 }
+	</transfer>
+
+END

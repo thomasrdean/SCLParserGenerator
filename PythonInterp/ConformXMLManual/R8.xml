@@ -1,0 +1,182 @@
+<?xml version="1.0"?>
+<!--
+R8 DEFINITIONS ::= BEGIN
+
+    EXPORTS PDU;
+
+    PDU ::= (R81 | R82 | R83)
+
+    R81 ::= SEQUENCE {
+	c INTEGER (SIZE 1 BYTES),
+	d INTEGER (SIZE 4 BYTES),
+	e INTEGER (SIZE 4 BYTES),
+    } (ENCODED BY CUSTOM)
+    <transfer>
+	Back{c == 10 }
+    </transfer>
+
+    R82 ::= SEQUENCE {
+	a INTEGER (SIZE 1 BYTES),
+	b INTEGER (SIZE 4 BYTES),
+    } (ENCODED BY CUSTOM)
+    <transfer>
+	Back{a == 10 }
+    </transfer>
+
+
+    R83 ::= SEQUENCE {
+	c INTEGER (SIZE 1 BYTES),
+	d INTEGER (SIZE 4 BYTES),
+	e INTEGER (SIZE 4 BYTES),
+    } (ENCODED BY CUSTOM)
+    <transfer>
+	Back{c == 20 }
+    </transfer>
+END
+-->
+<serialized-grammar>
+    <name>R8</name>
+    <exports><user-type>PDU_R8</user-type></exports>
+    <user-type-decl>
+        <decision>
+	    <name>PDU_R8</name>
+	    <choices>
+		<choice>
+		    <name>R81</name>
+		    <type>R81_R8</type>
+		</choice>
+		<choice>
+		    <name>R82</name>
+		    <type>R82_R8</type>
+		</choice>
+		<choice>
+		    <name>R83</name>
+		    <type>R83_R8</type>
+		</choice>
+	    </choices>
+        </decision>
+    </user-type-decl>
+    <user-type-decl>
+	<record>
+	    <name>R82_R8</name>
+	    <encoding>CUSTOM</encoding>
+	    <recordCat>SEQ</recordCat>
+	    <fields>
+		<field>
+		    <name>a</name>
+		    <type>a_R82_R8</type>
+	        </field>
+		<field>
+		     <name>b</name>
+		     <type>b_R82_R8</type>
+	        </field>
+	    </fields>
+            <back-constraints>
+               <back-constraint>
+                   <exprBinOp op='=='>
+                      <exprID>a</exprID>
+                      <exprVal type="int">10</exprVal>
+                   </exprBinOp>
+               </back-constraint>
+            </back-constraints>
+	</record>
+    </user-type-decl>
+    <user-type-decl>
+	<record>
+	    <name>R81_R8</name>
+	    <encoding>CUSTOM</encoding>
+	    <recordCat>SEQ</recordCat>
+	    <fields>
+	        <field>
+		    <name>c</name>
+		    <type>c_R81_R8</type>
+	        </field>
+	        <field>
+		    <name>d</name>
+		    <type>d_R81_R8</type>
+	        </field>
+	        <field>
+		    <name>e</name>
+		    <type>e_R81_R8</type>
+	        </field>
+	    </fields>
+            <back-constraints>
+               <back-constraint>
+                   <exprBinOp op='=='>
+                      <exprID>c</exprID>
+                      <exprVal type="int">10</exprVal>
+                   </exprBinOp>
+               </back-constraint>
+            </back-constraints>
+	</record>
+    </user-type-decl>
+    <user-type-decl>
+	<record>
+	    <name>R83_R8</name>
+	    <encoding>CUSTOM</encoding>
+	    <recordCat>SEQ</recordCat>
+	    <fields>
+	        <field>
+		    <name>c</name>
+		    <type>c_R81_R8</type>
+	        </field>
+	        <field>
+		    <name>d</name>
+		    <type>d_R81_R8</type>
+	        </field>
+	        <field>
+		    <name>e</name>
+		    <type>e_R81_R8</type>
+	        </field>
+	    </fields>
+            <back-constraints>
+               <back-constraint>
+                   <exprBinOp op='=='>
+                      <exprID>c</exprID>
+                      <exprVal type="int">20</exprVal>
+                   </exprBinOp>
+               </back-constraint>
+            </back-constraints>
+	</record>
+    </user-type-decl>
+    <user-type-decl>
+	<token>
+	   <name>a_R82_R8</name>
+	   <type>INTEGER</type>
+	   <byte-size>1</byte-size>
+	   <text>Octet</text>
+	</token>
+    </user-type-decl>
+    <user-type-decl>
+	<token>
+	    <name>b_R82_R8</name>
+	    <type>INTEGER</type>
+	    <byte-size>4</byte-size>
+	    <text>Octet</text>
+	</token>
+    </user-type-decl>
+    <user-type-decl>
+	<token>
+	    <name>c_R81_R8</name>
+	    <type>INTEGER</type>
+	    <byte-size>1</byte-size>
+	    <text>Octet</text>
+	</token>
+    </user-type-decl>
+    <user-type-decl>
+	<token>
+	    <name>d_R81_R8</name>
+	    <type>INTEGER</type>
+	    <byte-size>4</byte-size>
+	    <text>Octet</text>
+	</token>
+    </user-type-decl>
+    <user-type-decl>
+	<token>
+	    <name>e_R81_R8</name>
+	    <type>INTEGER</type>
+	    <byte-size>4</byte-size>
+	    <text>Octet</text>
+	</token>
+    </user-type-decl>
+</serialized-grammar>

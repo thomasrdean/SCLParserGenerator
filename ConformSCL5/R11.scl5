@@ -1,0 +1,20 @@
+
+R11 DEFINITIONS ::= BEGIN
+
+   EXPORTS PDU;
+
+   PDU ::= SEQUENCE {
+       a INTEGER (SIZE 2 BYTES),
+       b SET OF C2 (SIZE CONSTRAINED),
+       c INTEGER (SIZE 2 BYTES)
+   } (ENCODED BY CUSTOM)
+   <transfer>
+   Forward { CARDINALITY(b) == a}
+   </transfer>
+
+   C2 ::= SEQUENCE {
+       a INTEGER (SIZE 1 BYTES),
+       b INTEGER (SIZE 2 BYTES)
+   }
+
+END

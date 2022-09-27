@@ -1,0 +1,15 @@
+
+R9 DEFINITIONS ::= BEGIN
+
+   EXPORTS PDU;
+
+   PDU ::= SEQUENCE {
+       a INTEGER (SIZE 2 BYTES),
+       b OCTET STRING (SIZE 10 BYTES),
+       c OCTET STRING (SIZE CONSTRAINED)
+   } (ENCODED BY CUSTOM)
+   <transfer>
+   Forward { LENGTH(c) == a}
+   </transfer>
+
+END

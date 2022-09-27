@@ -1,0 +1,12 @@
+{
+    "makefile.extensionOutputFolder": "./.vscode",
+    "makefile.launchConfigurations": [
+        {
+            "cwd": "/Volumes/VM_Images2/Research/SCLParserGenerator/BUILD",
+            "binaryPath": "/Volumes/VM_Images2/Research/SCLParserGenerator/BUILD/bin/pcapparse",
+            "binaryArgs": [
+                "../../DNSPcaps/dns.cap"
+            ]
+        }
+    ]
+}

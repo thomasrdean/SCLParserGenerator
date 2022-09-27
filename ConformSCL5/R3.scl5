@@ -1,0 +1,14 @@
+R3 DEFINITIONS ::= BEGIN
+
+   EXPORTS PDU;
+
+   PDU ::= SEQUENCE {
+       a REAL    (SIZE 8 BYTES),
+       b INTEGER (SIZE 8 BYTES),
+       c REAL    (SIZE 4 BYTES),
+       d INTEGER (SIZE 4 BYTES),
+       e INTEGER (SIZE 2 BYTES),
+       f INTEGER (SIZE 1 BYTES),
+   } (ENCODED BY CUSTOM)
+
+END

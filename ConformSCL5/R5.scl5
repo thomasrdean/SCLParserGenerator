@@ -1,0 +1,24 @@
+
+R5 DEFINITIONS ::= BEGIN
+
+    EXPORTS PDU;
+
+    PDU ::= (R51 | R52)
+
+    R51 ::= SEQUENCE {
+	a INTEGER (SIZE 1 BYTES),
+	b INTEGER (SIZE 4 BYTES),
+    } (ENCODED BY CUSTOM)
+    <transfer>
+	Back{a == 10 }
+    </transfer>
+
+    R52 ::= SEQUENCE {
+	c INTEGER (SIZE 1 BYTES),
+	d INTEGER (SIZE 4 BYTES),
+	e INTEGER (SIZE 4 BYTES),
+    } (ENCODED BY CUSTOM)
+    <transfer>
+	Back{c == 20 }
+    </transfer>
+END

@@ -1,0 +1,22 @@
+R4 DEFINITIONS ::= BEGIN
+
+   EXPORTS PDU;
+
+   PDU ::= SEQUENCE {
+      s1 S1 (SIZE DEFINED),
+      s2 S2 (SIZE DEFINED)
+   } (ENCODED BY CUSTOM)
+
+
+   S1 ::= SEQUENCE {
+       a REAL    (SIZE 8 BYTES),
+       b INTEGER (SIZE 8 BYTES),
+       c REAL    (SIZE 4 BYTES),
+   } (ENCODED BY CUSTOM)
+
+   S2 ::= SEQUENCE {
+       d INTEGER (SIZE 4 BYTES),
+       e INTEGER (SIZE 2 BYTES),
+       f INTEGER (SIZE 1 BYTES),
+   } (ENCODED BY CUSTOM)
+END

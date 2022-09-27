@@ -1,0 +1,24 @@
+
+R10 DEFINITIONS ::= BEGIN
+
+   EXPORTS PDU;
+
+   PDU ::= (C1 | C2)
+
+   C1 ::= SEQUENCE {
+       a INTEGER (SIZE 2 BYTES),
+       b OCTET STRING (SIZE 10 BYTES),
+   } (ENCODED BY CUSTOM)
+   <transfer>
+   Back { a == 2}
+   </transfer>
+
+   C2 ::= SEQUENCE {
+       a INTEGER (SIZE 1 BYTES),
+       b OCTET STRING (SIZE 10 BYTES),
+   } (ENCODED BY CUSTOM)
+   <transfer>
+   Back { a == 3}
+   </transfer>
+
+END

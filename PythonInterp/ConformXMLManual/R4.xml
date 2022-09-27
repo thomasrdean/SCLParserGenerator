@@ -1,0 +1,136 @@
+<?xml version="1.0"?>
+<!--
+R4 DEFINITIONS ::= BEGIN
+
+   EXPORTS PDU;
+
+   PDU ::= SEQUENCE {
+      s1 S1 (SIZE DEFINED),
+      s2 S2 (SIZE DEFINED)
+   } (ENCODED BY CUSTOM)
+
+
+   S1 ::= SEQUENCE {
+       a REAL    (SIZE 8 BYTES),
+       b INTEGER (SIZE 8 BYTES),
+       c REAL    (SIZE 4 BYTES),
+   } (ENCODED BY CUSTOM)
+
+   S2 ::= SEQUENCE {
+       d INTEGER (SIZE 4 BYTES),
+       e INTEGER (SIZE 2 BYTES),
+       f INTEGER (SIZE 1 BYTES),
+   } (ENCODED BY CUSTOM)
+END
+-->
+<serialized-grammar>
+    <name>R4</name>
+    <exports><user-type>PDU_R4</user-type></exports>
+    <user-type-decl>
+	<record>
+	    <name>PDU_R4</name>
+	    <encoding>CUSTOM</encoding>
+	    <recordCat>SEQ</recordCat>
+	    <fields>
+		<field>
+		    <name>s1</name>
+		    <type>S1_R4</type>
+	        </field>
+		<field>
+		     <name>s2</name>
+		     <type>S2_R4</type>
+	        </field>
+	    </fields>
+	</record>
+    </user-type-decl>
+    <user-type-decl>
+	<record>
+	    <name>S1_R4</name>
+	    <encoding>CUSTOM</encoding>
+	    <recordCat>SEQ</recordCat>
+	    <fields>
+		<field>
+		    <name>a</name>
+		    <type>a_S1_R4</type>
+	        </field>
+		<field>
+		     <name>b</name>
+		     <type>b_S1_R4</type>
+	        </field>
+	        <field>
+		    <name>c</name>
+		    <type>c_S1_R4</type>
+		</field>
+	    </fields>
+	</record>
+    </user-type-decl>
+    <user-type-decl>
+	<record>
+	    <name>S2_R4</name>
+	    <encoding>CUSTOM</encoding>
+	    <recordCat>SEQ</recordCat>
+	    <fields>
+	        <field>
+		    <name>d</name>
+		    <type>d_S2_R4</type>
+	        </field>
+	        <field>
+		    <name>e</name>
+		    <type>e_S2_R4</type>
+	        </field>
+	        <field>
+		    <name>f</name>
+		    <type>f_S2_R4</type>
+	        </field>
+	    </fields>
+	</record>
+    </user-type-decl>
+    <user-type-decl>
+	<token>
+	   <name>a_S1_R4</name>
+	   <type>REAL</type>
+	   <byte-size>8</byte-size>
+	    <text>Octet</text>
+	</token>
+    </user-type-decl>
+    <user-type-decl>
+	<token>
+	    <name>b_S1_R4</name>
+	    <type>INTEGER</type>
+	    <byte-size>8</byte-size>
+	    <text>Octet</text>
+	</token>
+    </user-type-decl>
+    <user-type-decl>
+	<token>
+	    <name>c_S1_R4</name>
+	    <type>REAL</type>
+	    <byte-size>4</byte-size>
+	    <text>Octet</text>
+	</token>
+    </user-type-decl>
+    <user-type-decl>
+	<token>
+	    <name>d_S2_R4</name>
+	    <type>INTEGER</type>
+	    <byte-size>4</byte-size>
+	    <text>Octet</text>
+	</token>
+    </user-type-decl>
+    <user-type-decl>
+	<token>
+	    <name>e_S2_R4</name>
+	    <type>INTEGER</type>
+	    <byte-size>2</byte-size>
+	    <text>Octet</text>
+	</token>
+    </user-type-decl>
+    <user-type-decl>
+	<token>
+	    <name>f_S2_R4</name>
+	    <type>INTEGER</type>
+	    <byte-size>1</byte-size>
+	    <text>Octet</text>
+	</token>
+    </user-type-decl>
+</serialized-grammar>

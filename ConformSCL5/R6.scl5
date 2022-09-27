@@ -1,0 +1,20 @@
+R6 DEFINITIONS ::= BEGIN
+
+   EXPORTS PDU;
+   
+    PDU ::= SEQUENCE {
+       a INTEGER (SIZE 2 BYTES),
+       b INTEGER (SIZE 2 BYTES),
+       x X (SIZE DEFINED) OPTIONAL
+    }
+    <transfer>
+       Forward { EXISTS(x) == PDUREMAINING }
+    </transfer>
+
+
+    X ::= SEQUENCE {
+       c INTEGER (SIZE 2 BYTES),
+       d INTEGER (SIZE 2 BYTES),
+    } (ENCODED BY CUSTOM)
+
+END

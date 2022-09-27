@@ -1,0 +1,127 @@
+<?xml version="1.0"?>
+<!--
+R6 DEFINITIONS ::= BEGIN
+
+   EXPORTS PDU;
+   
+    PDU ::= SEQUENCE {
+       a INTEGER (SIZE 2 BYTES),
+       b INTEGER (SIZE 2 BYTES),
+       x X (SIZE DEFINED) OPTIONAL
+    }
+    <transfer>
+       Forward { EXISTS(x) == PDUREMAINING }
+    </transfer>
+
+
+    X ::= SEQUENCE {
+       c INTEGER (SIZE 2 BYTES),
+       d INTEGER (SIZE 2 BYTES),
+    } (ENCODED BY CUSTOM)
+
+END
+Not finished yet
+-->
+<serialized-grammar>
+    <name>R6</name>
+    <exports><user-type>PDU_R6</user-type></exports>
+	<record>
+	    <name>PDU_R6</name>
+	    <encoding>CUSTOM</encoding>
+	    <recordCat>SEQ</recordCat>
+	    <fields>
+		<field>
+		    <name>a</name>
+		    <type>INT2</type>
+	        </field>
+		<field>
+		     <name>b</name>
+		     <type>INT2</type>
+	        </field>
+		<field>
+		     <name>x</name>
+		     <type>PDU_X</type>
+		     <optional/>
+	        </field>
+	    </fields>
+            <forward-constraints>
+               <forward-constraint>
+	           <name>EXISTS</name>
+		   <field>x</name>
+		   <expr>
+                   <exprBuiltin>PDUREMAINING</exprBuiltin>
+		   </expr>
+               </forward-constraint>
+            </forward-constraints>
+	</record>
+    </user-type-decl>
+    <user-type-decl>
+	<record>
+	    <name>R52_R5</name>
+	    <encoding>CUSTOM</encoding>
+	    <recordCat>SEQ</recordCat>
+	    <fields>
+	        <field>
+		    <name>c</name>
+		    <type>c_R52_R5</type>
+	        </field>
+	        <field>
+		    <name>d</name>
+		    <type>d_R52_R5</type>
+	        </field>
+	        <field>
+		    <name>e</name>
+		    <type>e_R52_R5</type>
+	        </field>
+	    </fields>
+            <back-constraints>
+               <back-constraint>
+                   <exprBinOp op='=='>
+                      <exprID>c</exprID>
+                      <exprVal type="int">20</exprVal>
+                   </exprBinOp>
+               </back-constraint>
+            </back-constraints>
+	</record>
+    </user-type-decl>
+    <user-type-decl>
+	<token>
+	   <name>a_R51_R5</name>
+	   <type>INTEGER</type>
+	   <byte-size>1</byte-size>
+	   <text>Octet</text>
+	</token>
+    </user-type-decl>
+    <user-type-decl>
+	<token>
+	    <name>b_R51_R5</name>
+	    <type>INTEGER</type>
+	    <byte-size>4</byte-size>
+	    <text>Octet</text>
+	</token>
+    </user-type-decl>
+    <user-type-decl>
+	<token>
+	    <name>c_R52_R5</name>
+	    <type>INTEGER</type>
+	    <byte-size>1</byte-size>
+	    <text>Octet</text>
+	</token>
+    </user-type-decl>
+    <user-type-decl>
+	<token>
+	    <name>d_R52_R5</name>
+	    <type>INTEGER</type>
+	    <byte-size>4</byte-size>
+	    <text>Octet</text>
+	</token>
+    </user-type-decl>
+    <user-type-decl>
+	<token>
+	    <name>e_R52_R5</name>
+	    <type>INTEGER</type>
+	    <byte-size>4</byte-size>
+	    <text>Octet</text>
+	</token>
+    </user-type-decl>
+</serialized-grammar>

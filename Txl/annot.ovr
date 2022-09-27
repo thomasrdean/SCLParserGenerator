@@ -1,0 +1,165 @@
+
+% Annotations are used for handling GLOBAL attribution
+% and for LL(1),LL(K) optimization. 
+
+% The markup starts on individual elements and then is propogated
+% to the type decisions where they will be used to optimize code theat generates
+% the choice.
+
+% global annotation - the global direcive is applied when a type decision
+% has a back constraint Global(X), and all of the type in the type deciion
+% have an annotation of the form Global(X)==y
+
+% the form of the annotation is
+%   TD @ GLOBAL @optimizable ::= ( A @ GLOBAL 1 | B @ GLOBAL 2 | ...)
+% the @optimizable annotation is only added if every choice in the type decision
+% has a global value as a back constraint.
+%
+% if a TD is based on a global, then no LL(*) optimizations are done on that type decision
+
+
+define optimizable_annotation
+    '@ 'optimizable
+end define
+
+define global_annotation
+    '@ 'GLOBAL [opt number]
+end define
+
+define broken_global_annotation
+    '@ 'BROKEN_GLOBAL 
+end define
+
+% LL1/LLK optimizations
+
+% Based on position and value in an element. LL1 optimizaiton has a position of 0 (first element)
+% first the individual type structures are annotated based on the back constraints
+%
+%  X @ 0 1 0,3 @ ::= SEQU {
+%     type	INTEGER (SIZE 1 BYTE)
+%     ...
+%   }
+%  <transfer>
+%    Back(type == 0 || type == 3}
+%  </transfer>
+% position is 0, size is 1, and a list of values
+%
+%  TD ::= (A @ 0 1 2,3 @ | B @ 0 1 1,5 @ | ...)
+% LLK optimizaiton allows first offset to be other than zero
+% second '@ in the annotation is to allow simpler list nubmer rather
+% than list number+.
+
+define llk_annotation
+    '@ LL [number] [number] [list number] 
+end define
+
+% LLK helper annotations
+
+% need to know the offset of a field in a given struct
+% might not be constant if the field before it varying size
+% also used for the struct as a whole
+
+define pos_size_annotation
+    [const_pos_size_annotation]
+  | [var_pos_size_annotation]
+end define
+
+% first number is position of field, second is size
+define const_pos_size_annotation
+   @ CONST [number] [number]
+end define
+
+% used for fields that are variing position or varying position
+% and size. If number is present means that the size is constant
+% but the position is variable
+define var_pos_size_annotation
+  @ VAR [opt number]
+end define
+
+% Contraint annotation used to mark fields use in transfer constraints
+
+define position_used
+  @ 'POS
+end define
+
+% put them all together
+
+define annotation
+    [repeat annotation_item]
+end define
+
+define annotation_item
+    [position_used]
+  | [pos_size_annotation]
+  | [llk_annotation]
+  | [optimizable_annotation]
+  | [global_annotation]
+  | [broken_global_annotation]
+end define
+
+% location of annotations in the grammar
+
+% Annotations are added to the rule that defines each type
+% of a type decision
+redefine type_decl
+    [decl] [annotation]
+end redefine
+
+% Annotations are added to each type reference element of
+% a type decision
+redefine type_reference
+    [id] [opt dotID] [annotation] [opt unused_annotation]
+end redefine
+
+
+% used when optimizing LL lookahead
+define unused_annotation
+ '! [annotation]
+end define
+
+redefine element_decl
+    [decl] [annotation]
+end redefine
+
+
+%% LLK lookahead block
+redefine scl_additions
+    [opt encoding_grammar_indicator]
+    [opt transfer_rules_block]
+    [opt constraints_block]
+    [opt optimizable_block]
+    [NL]
+end redefine
+
+define optimizable_block
+  [NL]
+  '<lookahead>  			[NL][IN]
+    [refs_or_sub_block]			[EX][NL]
+  '</lookahead>
+end define
+
+define lookahead_block
+   % offset size
+  '{ [number] [number] 			[IN][NL]
+       % known cases for this offset
+       [repeat switch_case] 		[EX]
+  '}					[NL]
+end define
+
+define switch_case
+    [optim_case]
+%  | [def_case]
+end define
+
+define optim_case
+   [number] '@ [refs_or_sub_block]	[NL]
+end define
+
+define def_case
+   '* '@ [refs_or_sub_block]		[NL]
+end define
+
+define refs_or_sub_block
+    [repeat type_reference]
+  | [lookahead_block]
+end define

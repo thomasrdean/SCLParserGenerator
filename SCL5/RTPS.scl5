@@ -1,0 +1,989 @@
+
+-- RTPS DDS Protocol
+-- Data Distribution Service is a publish subscriber network archicture that
+-- has multiple implementaitons. One implementation is based on CORBA with
+-- an Object Request Broker (ORB) and tcp streams between publishers and subscribers.
+-- Real Time Publisher Subcriber protocol (RTPS) is a UDP protocol that uses both
+-- multicast and unicast to handle real time updates between publishers and subscribers.
+
+-- this is a very complex protocol that was standardized  by Object Management Group.
+-- some of the difficulties is that messages can change endianness at various points in
+-- a message, and the endianness is inherited by subparts of the grammar. Different parts
+-- of the message can also have different encodings. It also has alignment requirements
+-- that change depeding on context and encoding.
+
+-- the grammar was first built for the IDS vesion of SCL, and the new version does not
+-- yet implement callbacks, so the Callback directive is not yet implemented (Feb 2022).
+
+-- one nice thing is that all packets begin with one of two magic numbers, which makes
+-- it easy to identify the protocol unlike the parsing ambicuities between NTP and DNS.
+
+RTPS DEFINITIONS ::= BEGIN
+
+    EXPORTS PDU;
+
+    PDU ::= (FULL | PING)
+
+    -- The Ping Packet is much more simple than the general RTPS packet. Just a header
+    -- and a predefined value.
+    -- PING is listed second in the Type Decision, so the default is to try and
+    -- parse as a Full RTPS packet.
+    PING ::= SEQUENCE {
+	Header  HEADER (SIZE DEFINED),
+	ping    OCTET STRING (SIZE 8 BYTES)
+    } (ENCODED BY CUSTOM)
+    <transfer>
+      Back { Header.protoName == 'RTPS' || Header.protoName == 'RTPX' } -- 0x52545053
+      Back { ping == 5639707757994659399}
+      Callback
+      All Bytes Used
+    </transfer>
+
+    -- Regular RTPS packets consist of a header, a global unique ID prefix and a set of submessages.
+    -- when callback is used, the callback is invoked for each of the submessages in order.
+    FULL ::= SEQUENCE {
+	Header  	HEADER (SIZE DEFINED),
+	guidPrefix  	GUIDPREFIX (SIZE DEFINED),
+	subMsg  	SET OF SUBMESSAGE (SIZE CONSTRAINED)
+    } (ENCODED BY CUSTOM)
+    <transfer>
+	Back { Header.protoName == 'RTPS' || Header.protoName == 'RTPX' } -- 0x52545053
+	Forward { END(subMsg) }
+	Callback
+        All Bytes Used
+    </transfer>
+
+    -- Common to both PING and FULL
+    HEADER ::= SEQUENCE {
+	protoName	OCTET STRING  (SIZE 4 BYTES),
+	version	    	INTEGER (SIZE 2 BYTES),
+	vendorId	INTEGER (SIZE 2 BYTES)
+    } (ENCODED BY CUSTOM)
+
+    -- ALL Regulat RTPS packets have a global uid prefix
+    -- no real constraints on this structure
+    GUIDPREFIX ::= SEQUENCE {
+	hostID  INTEGER (SIZE 4 BYTES),
+	appID   INTEGER (SIZE 4 BYTES),
+	counter INTEGER (SIZE 4 BYTES)
+    } (ENCODED BY CUSTOM)
+
+    
+    SUBMESSAGE ::= (DATAPSUB | DATASUB | ACKNACK | HEARTBEAT | INFO_DST | INFO_TS | DATAWSUB | DATARSUB | GAP)
+
+    -- In the geral parsing sense, RTPS has only one DATA submessage (kind = 21).
+    DATAPSUB ::= SEQUENCE {
+	kind       INTEGER (SIZE 1 BYTES),
+	flags      INTEGER (SIZE 1 BYTES),
+	nextHeader INTEGER (SIZE 2 BYTES),
+	extraFlags INTEGER (SIZE 2 BYTES),
+	qosOffset  INTEGER (SIZE 2 BYTES),
+	readerEnt  ENTITYID (SIZE DEFINED) BIGENDIAN,
+	writerEnt  ENTITYID (SIZE DEFINED) BIGENDIAN,
+	writerSEQ  INTEGER (SIZE 8 BYTES),
+	inlineQos  QOSPARM (SIZE DEFINED) OPTIONAL,
+	serializedData PARTICIPANTS (SIZE DEFINED) OPTIONAL
+    } (ENCODED BY CUSTOM)
+    <transfer>
+	Back {kind == 21} -- 0x15
+	Back {writerEnt.kind == 194 } -- 0xc2
+	Back {writerEnt.key == 256 } -- 0x000100 
+	Forward { ENDIANNESS == flags & 1 }
+	Forward { EXISTS(inlineQos) == flags & 2 }
+	Forward { EXISTS(serializedData) == flags & 12 }
+    </transfer>
+
+    DATASUB ::= SEQUENCE {
+	kind       INTEGER (SIZE 1 BYTES),
+	flags      INTEGER (SIZE 1 BYTES),
+	nextHeader INTEGER (SIZE 2 BYTES),
+	extraFlags INTEGER (SIZE 2 BYTES),
+	qosOffset  INTEGER (SIZE 2 BYTES),
+	readerEnt  ENTITYID (SIZE DEFINED) BIGENDIAN,
+	writerEnt  ENTITYID (SIZE DEFINED) BIGENDIAN,
+	writerSEQ  INTEGER (SIZE 8 BYTES),
+	inlineQos  QOSPARM (SIZE DEFINED) OPTIONAL,
+	serializedData OCTET STRING (SIZE CONSTRAINED)
+    } (ENCODED BY CUSTOM)
+    <transfer>
+	Back {kind == 21} -- 0x15
+	Back {writerEnt.kind == 2 || writerEnt.kind == 3 }
+	Forward { ENDIANNESS == flags & 1 }
+	Forward { EXISTS(inlineQos) == flags & 2 }
+	-- if nextheader==0 length(serializeddata)=pudlength -- number of byes left in the packet
+	-- if nextheader !=0 nextheade - pos(nextheadr) pos(inlineQUOS) + le
+	Forward { LENGTH(serializedData) == (nextHeader) ? nextHeader - (POS(serializedData) - POS(extraFlags)) : PDUREMAINING }
+    </transfer>
+
+QOSPARM ::= SEQUENCE {
+    qos SET OF QOSPARMS (SIZE CONSTRAINED),
+} (ENCODED BY CUSTOM)
+<transfer>
+  Forward { TERMINATE(qos) == PIDSENTINAL}
+</transfer>
+
+QOSPARMS  ::= (PIDSTATUSINFO | PIDKEYHASH | PIDSENTINAL)
+
+PIDSTATUSINFO ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    flags            OCTET STRING (SIZE CONSTRAINED)
+} (ENCODED BY CUSTOM)
+<transfer>
+Back {parameterKind == 113 }
+Forward { LENGTH(flags) == parameterLength }
+</transfer>
+
+PIDKEYHASH ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    guid             OCTET STRING (SIZE CONSTRAINED)
+} (ENCODED BY CUSTOM)
+<transfer>
+  Back {parameterKind == 112 }
+  Forward { LENGTH(guid) == parameterLength }
+</transfer>
+
+TOPICS ::= SEQUENCE {
+    encapsKind INTEGER (SIZE 2 BYTES) BIGENDIAN,
+    encapsOpts INTEGER (SIZE 2 BYTES) BIGENDIAN,
+    topicData SET OF TOPICPARMS (SIZE CONSTRAINED)    
+}
+<transfer>
+  Forward { TERMINATE(topicData) == PIDSENTINAL}
+</transfer>
+
+DATAWSUB ::= SEQUENCE {
+    kind       INTEGER (SIZE 1 BYTES),
+    flags      INTEGER (SIZE 1 BYTES),
+    nextHeader INTEGER (SIZE 2 BYTES),
+    extraFlags INTEGER (SIZE 2 BYTES),
+    qosOffset  INTEGER (SIZE 2 BYTES),
+    readerEnt  ENTITYID (SIZE DEFINED) BIGENDIAN,
+    writerEnt  ENTITYID (SIZE DEFINED) BIGENDIAN,
+    writerSEQ  INTEGER (SIZE 8 BYTES),
+    inlineQos  QOSPARM (SIZE DEFINED) OPTIONAL,
+    serializedData TOPICS (SIZE DEFINED) OPTIONAL
+} (ENCODED BY CUSTOM)
+<transfer>
+Back {kind == 21} -- 0x15
+Back {writerEnt.kind == 194 } -- 0xc2
+Back {writerEnt.key == 3 } -- 0x000003  ENTITYID_BUILTIN_POUBLICATIONS_WRITER (little endian version)
+Forward { ENDIANNESS == flags & 1 }
+Forward { EXISTS(inlineQos) == flags & 2 }
+Forward { EXISTS(serializedData) == flags & 12 }
+
+</transfer>
+
+TOPICPARMS  ::= (PIDTOPICNAME|PIDTYPENAME|PIDRELIABILITY|PIDENDPOINTGUID| PIDENDSECATTR
+		    |PIDMULTICASTLOCATOR| PIDUNICASTLOCATOR|PIDSENTINAL | PIDUNKNOWN|PIDACKKIND
+            |PIDRECVQUEUE|PIDTIMEBASEDFILTER|PIDLIVELINESS|PIDDURABILITY|PIDDIRECTCOMMUNICATION | PIDROLENAME | PIDTOPICQUERYPUB
+            |PIDOWNERSHIP|PIDPRESENTATION|PIDDESTINATIONORDER|PIDDEADLINE|PIDLATENCYBUDGET | PIDENDPROPCHNGEPOCH
+            |PIDGROUPENTITYID|PIDENTITYVIRTUALGUID|PIDSERVICEKIND|PIDPROTOVERSION|PIDPRODUCTVERSION|PIDDISABLEPOSITIVEACKS|PIDEXPECTSVIRTUALHB|PIDTYPECONSISTENCY|PIDTYPEOBJECT|PIDTYPECODE|PIDVENDORID|PIDENTITYNAME|PIDEXPECTSACK|PIDSENDQUEUESIZE|PIDOWNERSHIPSTRENGTH|PIDPERSISTENCE|PIDLIFESPAN|PIDTYPEMAXSIZESERIALIZED|PIDDURABILITYSERVICE)
+
+PIDENDSECATTR ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    flags            OCTET STRING (SIZE CONSTRAINED)
+}
+<transfer>
+Back {parameterKind == 32792} -- 0x8018
+Forward {LENGTH(flags) == parameterLength} -- 0x0059
+</transfer>
+ 
+PIDTOPICQUERYPUB ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    queryInfo        OCTET STRING (SIZE CONSTRAINED)
+} 
+<transfer>
+Back {parameterKind == 32788} -- 0x8014
+Forward {LENGTH(queryInfo) == parameterLength} -- 0x0059
+</transfer>
+
+PIDENDPROPCHNGEPOCH ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    propChangeEpoch  OCTET STRING (SIZE CONSTRAINED)
+}
+<transfer>
+Back {parameterKind == 32789} -- 0x8015
+Forward {LENGTH(propChangeEpoch) == parameterLength} -- 0x0059
+</transfer>
+
+PIDTYPEMAXSIZESERIALIZED ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    value OCTET STRING (SIZE CONSTRAINED)
+}
+<transfer>
+Back {parameterKind == 96 } --  0x60
+Forward { LENGTH(value) == parameterLength }
+</transfer>
+
+PIDLIFESPAN ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    leaseDuration OCTET STRING (SIZE CONSTRAINED)
+}
+<transfer>
+Back {parameterKind == 43 } --  0x2b
+Forward { LENGTH(leaseDuration) == parameterLength }
+</transfer>
+
+PIDDURABILITYSERVICE ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    durabilityService OCTET STRING (SIZE CONSTRAINED)
+}
+<transfer>
+Back {parameterKind == 30 } --  0x1e
+Forward { LENGTH(durabilityService) == parameterLength }
+</transfer>
+
+PIDPERSISTENCE ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    leaseDuration        OCTET STRING (SIZE CONSTRAINED)
+}
+<transfer>
+Back {parameterKind == 3 } --  0x3
+Forward { LENGTH(leaseDuration) == parameterLength }
+</transfer>
+
+PIDOWNERSHIPSTRENGTH ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    strength        OCTET STRING (SIZE CONSTRAINED)
+}
+<transfer>
+Back {parameterKind == 6 } 
+Forward { LENGTH(strength) == parameterLength }
+</transfer>
+
+PIDSENDQUEUESIZE ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    queueSize        OCTET STRING (SIZE CONSTRAINED)
+}
+<transfer>
+Back {parameterKind == 19 } --  0x13
+Forward { LENGTH(queueSize) == parameterLength }
+</transfer>
+
+PIDEXPECTSACK ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    expectsAck        OCTET STRING (SIZE CONSTRAINED)
+}
+<transfer>
+Back {parameterKind == 16 } --  0x10
+Forward { LENGTH(expectsAck) == parameterLength }
+</transfer>
+
+PIDTYPECODE ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    typeObjectCode        OCTET STRING (SIZE CONSTRAINED)
+}
+<transfer>
+Back {parameterKind == 32772 } --  0x8004
+Forward { LENGTH(typeObjectCode) == parameterLength }
+</transfer>
+
+PIDTYPEOBJECT ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    typeObject        OCTET STRING (SIZE CONSTRAINED)
+}
+<transfer>
+Back {parameterKind == 114 } --  0x0072
+Forward { LENGTH(typeObject) == parameterLength }
+</transfer>
+
+PIDTYPECONSISTENCY ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    typeConsistencyKind  TYPECONSISTENCYKIND (SIZE DEFINED) SLACK
+}
+<transfer>
+Back {parameterKind == 116 } --  0x0074
+Forward { LENGTH(typeConsistencyKind) == parameterLength }
+</transfer>
+
+TYPECONSISTENCYKIND ::= SEQUENCE {
+    kind    INTEGER (SIZE 2 BYTES)
+}
+
+PIDEXPECTSVIRTUALHB ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    expectsVirtualHB FLAG (SIZE DEFINED) SLACK
+}
+<transfer>
+Back {parameterKind == 32777 } --  0x8009
+Forward { LENGTH(expectsVirtualHB) == parameterLength }
+</transfer>
+
+PIDDISABLEPOSITIVEACKS ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    disablePositiveAcks FLAG (SIZE DEFINED) SLACK
+}
+<transfer>
+Back {parameterKind == 32773 } --  0x8005
+Forward { LENGTH(disablePositiveAcks) == parameterLength }
+</transfer>
+
+FLAG ::= SEQUENCE {
+    flag INTEGER (SIZE 1 BYTES)
+}
+
+PIDSERVICEKIND ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    serviceKind         OCTET STRING (SIZE CONSTRAINED)
+}
+<transfer>
+Back {parameterKind == 32771 } --  0x8003
+Forward { LENGTH(serviceKind) == parameterLength }
+</transfer>
+
+PIDENTITYVIRTUALGUID ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    virtualGuid      VIRTUALGUID (SIZE DEFINED) SLACK
+}
+<transfer>
+Back {parameterKind == 32770 } --  0x8002
+Forward { LENGTH(virtualGuid) == parameterLength }
+</transfer>
+
+VIRTUALGUID ::= SEQUENCE {
+    guidPrefix         GUIDPREFIX (SIZE DEFINED) BIGENDIAN,
+    virtualGuidSuffix         ENTITYID (SIZE DEFINED) BIGENDIAN
+}
+
+PIDGROUPENTITYID ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    groupEntityId    ENTITYID (SIZE DEFINED) BIGENDIAN SLACK
+}
+<transfer>
+Back {parameterKind == 83 } --  0x0053
+Forward { LENGTH(groupEntityId) == parameterLength }
+</transfer>
+
+PIDLATENCYBUDGET ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    leaseDuration         OCTET STRING (SIZE CONSTRAINED)
+}
+<transfer>
+Back {parameterKind == 39 } --  0x0027
+Forward { LENGTH(leaseDuration) == parameterLength }
+</transfer>
+
+PIDDEADLINE ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    leaseDuration         OCTET STRING (SIZE CONSTRAINED)
+}
+<transfer>
+Back {parameterKind == 35 } --  0x0023
+Forward { LENGTH(leaseDuration) == parameterLength }
+</transfer>
+
+PIDDESTINATIONORDER ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    kind         OCTET STRING (SIZE CONSTRAINED)
+}
+<transfer>
+Back {parameterKind == 37 } --  0x0025
+Forward { LENGTH(kind) == parameterLength }
+</transfer>
+
+PIDPRESENTATION ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    presentation     PRESENTATION (SIZE DEFINED) SLACK
+}
+<transfer>
+Back {parameterKind == 33 } --  0x0021
+Forward { LENGTH(presentation) == parameterLength }
+</transfer>
+
+PRESENTATION ::= SEQUENCE {
+    accessScope INTEGER (SIZE 4 BYTES),
+    coherentAccess  INTEGER (SIZE 1 BYTES),
+    orderedAccess   INTEGER (SIZE 1 BYTES)    
+}
+
+PIDOWNERSHIP ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    kind         OCTET STRING (SIZE CONSTRAINED)
+}
+<transfer>
+Back {parameterKind == 31 } --  0x001f
+Forward { LENGTH(kind) == parameterLength }
+</transfer>
+
+PIDDIRECTCOMMUNICATION ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    directCommunication DIRECTCOMMUNICATION (SIZE DEFINED) SLACK
+}
+<transfer>
+Back {parameterKind == 32785 } --  0x8011
+Forward { LENGTH(directCommunication) == parameterLength }
+</transfer>
+
+DIRECTCOMMUNICATION ::= SEQUENCE {
+    directCommunication     INTEGER (SIZE 1 BYTES)    
+}
+
+PIDDURABILITY ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    durability         OCTET STRING (SIZE CONSTRAINED)
+}
+<transfer>
+Back {parameterKind == 29 } --  0x001d
+Forward { LENGTH(durability) == parameterLength }
+</transfer>
+
+PIDLIVELINESS ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    liveliness         OCTET STRING (SIZE CONSTRAINED)
+}
+<transfer>
+Back {parameterKind == 27 } --  0x001b
+Forward { LENGTH(liveliness) == parameterLength }
+</transfer>
+
+PIDTIMEBASEDFILTER ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    leaseDuration         OCTET STRING (SIZE CONSTRAINED)
+}
+<transfer>
+Back {parameterKind == 4 } --  0x0004
+Forward { LENGTH(leaseDuration) == parameterLength }
+</transfer>
+
+PIDRECVQUEUE ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    queueSize         OCTET STRING (SIZE CONSTRAINED)
+}
+<transfer>
+Back {parameterKind == 24 } --  0x0018
+Forward { LENGTH(queueSize) == parameterLength }
+</transfer>
+
+PIDACKKIND ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    ackKind         OCTET STRING (SIZE CONSTRAINED)
+}
+<transfer>
+Back {parameterKind == 32779 } --  0x800b
+Forward { LENGTH(ackKind) == parameterLength }
+</transfer>
+
+-- TODO this has an issue with alignment depending on the 
+-- platform. On some versions, the slack bytes are required.
+PIDTOPICNAME ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    -- slackBytes       INTEGER (SIZE 4 BYTES),
+    topicName      NESTEDSTRING (SIZE DEFINED) SLACK
+}
+<transfer>
+Back {parameterKind == 5 } --  0x0005 PID_TOPIC_NAME
+Forward { LENGTH(topicName) == parameterLength }
+ -- Back { GLOBAL(x) == 1 }
+</transfer>
+
+PIDUNKNOWN ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    slackBytes       OCTET STRING (SIZE 18 BYTES)
+}
+<transfer>
+Back {parameterKind == 45058 } --  0xB002 PID_TOPIC_NAME
+</transfer>
+
+PIDTYPENAME ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    -- slackBytes       INTEGER (SIZE 4 BYTES),
+    -- nameLength   INTEGER (SIZE 4 BYTES),
+    -- name	     OCTET STRING (SIZE CONSTRAINED)
+    typeName      NESTEDSTRING (SIZE DEFINED) SLACK
+}
+<transfer>
+Back {parameterKind == 7 } --  0x0007 PID_TYPE_NAME
+Forward { LENGTH(typeName) == parameterLength }
+-- Forward { nameLength <= parameterLength - (pos(name) - pos(nameLength)) }
+-- Forward { LENGTH(name) == nameLength }
+</transfer>
+
+NESTEDSTRING ::= SEQUENCE {
+    nameLength      INTEGER (SIZE 4 BYTES),
+    name            OCTET STRING (SIZE CONSTRAINED),
+}
+<transfer>
+    Forward { LENGTH(name) == nameLength }
+</transfer>
+
+-- TODO slack not implemented on a primitive type yet
+-- wrap primitve type in a sequence and add slack.
+PIDRELIABILITY ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    reliabilityQOS   RELIABQUOS (SIZE DEFINED) SLACK,
+    -- reliabilityQOS   INTEGER (SIZE 4 BYTES),
+    -- slack	     OCTET STRING (SIZE CONSTRAINED)
+}
+<transfer>
+Back {parameterKind == 26 } -- 0x001a PID_RELIABILITY
+Forward { LENGTH(reliabilityQOS) == parameterLength }
+-- TD Forward { LENGTH(slack) == parameterLength - SIZEOF(reliabilityQOS) }
+</transfer>
+
+RELIABQUOS::= SEQUENCE  {
+    reliabilityQOS   INTEGER (SIZE 4 BYTES),
+    duration	     INTEGER (SIZE 8 BYTES)
+}
+
+PIDENDPOINTGUID ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    participantGUID  GUIDPREFIX (SIZE DEFINED) BIGENDIAN,
+    entityID         ENTITYID (SIZE DEFINED) BIGENDIAN
+}
+<transfer>
+Back {parameterKind == 90 } -- 0x005a
+</transfer>
+
+PIDMULTICASTLOCATOR ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    locator          LOCATOR (SIZE DEFINED) SLACK
+}
+<transfer>
+Back {parameterKind == 48 } -- 0x0030 PID_MULTICAST_LOCATOR
+Forward { LENGTH(locator) == parameterLength }
+</transfer>
+
+PIDUNICASTLOCATOR ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    locator          LOCATOR (SIZE DEFINED) SLACK
+}
+<transfer>
+Back {parameterKind == 47 } -- 0x002f PID_UNICAST_LOCATOR
+Forward { LENGTH(locator) == parameterLength }
+</transfer>
+
+PARTICIPANTS ::= SEQUENCE {
+    encapsKind INTEGER (SIZE 2 BYTES) BIGENDIAN,
+    encapsOpts INTEGER (SIZE 2 BYTES) BIGENDIAN,
+    particData SET OF PARTICIPANTPARAMS (SIZE CONSTRAINED)   
+}
+<transfer>
+Forward { TERMINATE(particData) == PIDSENTINAL}
+</transfer>
+
+
+DATARSUB ::= SEQUENCE {
+    kind       INTEGER (SIZE 1 BYTES),
+    flags      INTEGER (SIZE 1 BYTES),
+    nextHeader INTEGER (SIZE 2 BYTES),
+    extraFlags INTEGER (SIZE 2 BYTES),
+    qosOffset  INTEGER (SIZE 2 BYTES),
+    readerEnt  ENTITYID (SIZE DEFINED) BIGENDIAN,
+    writerEnt  ENTITYID (SIZE DEFINED) BIGENDIAN,
+    writerSEQ  INTEGER (SIZE 8 BYTES),
+    inlineQos  QOSPARM (SIZE DEFINED) OPTIONAL,
+    serializedData TOPICS (SIZE DEFINED) OPTIONAL
+} (ENCODED BY CUSTOM)
+<transfer>
+Back {kind == 21} -- 0x15
+-- Back {writerEnt.key == 262144 } -- 0x000004 
+Back {writerEnt.kind == 194 } -- 0xc2
+Back {writerEnt.key == 4 } -- 0x000004 
+-- Forward {LENGTH(topicData) == (PDULENGTH - 48)} -- header+ guid + datasPsubFields
+Forward { ENDIANNESS == flags & 1 }
+Forward { EXISTS(inlineQos) == flags & 2 }
+Forward { EXISTS(serializedData) == flags & 12 }
+</transfer>
+
+INFO_DST ::= SEQUENCE {
+    kind       INTEGER (SIZE 1 BYTES),
+    flags      INTEGER (SIZE 1 BYTES),
+    nextHeader INTEGER (SIZE 2 BYTES),
+    guidPfx    GUIDPREFIX  (SIZE DEFINED) BIGENDIAN
+}
+<transfer>
+Back {kind == 14} -- 0x0e
+Forward { ENDIANNESS == flags & 1 }
+</transfer>
+
+INFO_TS ::= SEQUENCE {
+    kind       INTEGER (SIZE 1 BYTES),
+    flags      INTEGER (SIZE 1 BYTES),
+    nextHeader INTEGER (SIZE 2 BYTES),
+    timeStamp  OCTET STRING (SIZE 8 BYTES)
+}
+<transfer>
+Back {kind == 9} -- 0x09
+Forward { ENDIANNESS == flags & 1 }
+</transfer>
+
+ACKNACK ::= SEQUENCE {
+    kind       INTEGER (SIZE 1 BYTES),
+    flags      INTEGER (SIZE 1 BYTES),
+    nextHeader INTEGER (SIZE 2 BYTES),
+    readerEnt  ENTITYID (SIZE DEFINED) BIGENDIAN,
+    writerEnt  ENTITYID (SIZE DEFINED) BIGENDIAN,
+    readerSN   SNSTATE  (SIZE DEFINED),
+    counter    INTEGER (SIZE 4 BYTES)
+}
+<transfer>
+Back {kind == 6} -- 0x06
+Forward { ENDIANNESS == flags & 1 }
+</transfer>
+
+HEARTBEAT ::= SEQUENCE {
+    kind       INTEGER (SIZE 1 BYTES),
+    flags      INTEGER (SIZE 1 BYTES),
+    nextHeader INTEGER (SIZE 2 BYTES),
+    readerEnt  ENTITYID (SIZE DEFINED) BIGENDIAN,
+    writerEnt  ENTITYID (SIZE DEFINED) BIGENDIAN,
+    firstSeq   OCTET STRING (SIZE 8 BYTES), -- should be integer 64 bits
+    lastSeq    OCTET STRING (SIZE 8 BYTES), -- should be integer 64 bits
+    count      INTEGER (SIZE 4 BYTES)
+}
+<transfer>
+Back {kind == 7} -- 0x07
+Forward { ENDIANNESS == flags & 1 }
+</transfer>
+
+GAP ::= SEQUENCE {
+    kind       INTEGER (SIZE 1 BYTES),
+    flags      INTEGER (SIZE 1 BYTES),
+    nextHeader INTEGER (SIZE 2 BYTES),
+    readerEnt  ENTITYID (SIZE DEFINED) BIGENDIAN,
+    writerEnt  ENTITYID (SIZE DEFINED) BIGENDIAN,
+    gapStart   INTEGER  (SIZE 8 BYTES),
+    snState    SNSTATE (SIZE DEFINED)
+}
+<transfer>
+Back {kind == 8} -- 0x08
+Forward { ENDIANNESS == flags & 1 }
+</transfer>
+
+PARTICIPANTPARAMS ::= (PIDPROTOVERSION|PIDPARTICIPANTGUID|PIDVENDORID| PIDPARTICIPANTBUILTENDPOINTS 
+                       |PIDBUILTINENDPOINTSET|PIDMETATRAFFICUNILOCATOR|PIDDEFMULTILOCATOR
+		       |PIDPARTICIPANTLIVECOUNT| PIDPARTICIPANTLEASE  | PIDREACHLEASE
+		       |PIDSENTINAL| PIDDEFUNILOCATOR | PIDVENDORBUILTINENDPOINTSET | PIDSERVICEKIND
+		       | PIDMETATRAFFICMULTILOCATOR|PIDPROPERTYLIST|PIDENTITYNAME|PIDROLENAME
+               | PIDPEERHOSTEPOCH| PIDDOMAINID|PIDTRANSPORTINFOLIST|PIDPRODUCTVERSION)
+
+PIDREACHLEASE ::= SEQUENCE {
+    parameterKind   INTEGER (SIZE 2 BYTES),
+    parameterLength INTEGER (SIZE 2 BYTES),
+    duration        LEASEDURATION (SIZE DEFINED) SLACK
+}
+<transfer>
+Back {parameterKind == 32790 } -- 0x8016 PID_PARTICPANT_LEASE_DURATION
+Forward { LENGTH (duration) == parameterLength }
+</transfer>
+
+PIDVENDORBUILTINENDPOINTSET ::= SEQUENCE {
+    parameterKind   INTEGER (SIZE 2 BYTES),
+    parameterLength INTEGER (SIZE 2 BYTES),
+    flags           INTEGER (SIZE 4 BYTES)
+}
+<transfer>
+Back {parameterKind == 32791 } -- 0x8017 PID_VENDOR_BUILTIN_ENDPOINT_SET
+</transfer>
+
+
+PIDPRODUCTVERSION ::= SEQUENCE {
+    parameterKind     INTEGER (SIZE 2 BYTES),
+    parameterLength   INTEGER (SIZE 2 BYTES),
+    productVersion   PRODUCTVERSION (SIZE DEFINED) SLACK
+}
+<transfer>
+Back {parameterKind == 32768} -- 0x8000
+Forward {LENGTH(productVersion) == parameterLength} -- 0x0059
+</transfer>
+
+PRODUCTVERSION ::= SEQUENCE {
+    major   INTEGER (SIZE 1 BYTES),
+    minor   INTEGER (SIZE 1 BYTES),
+    release INTEGER (SIZE 1 BYTES),
+    revision INTEGER (SIZE 1 BYTES)
+}
+
+PIDTRANSPORTINFOLIST ::= SEQUENCE {
+    parameterKind     INTEGER (SIZE 2 BYTES),
+    parameterLength   INTEGER (SIZE 2 BYTES),
+    transports   TRANSPORTS (SIZE DEFINED)
+}
+<transfer>
+Back {parameterKind == 32784} -- 0x8010
+Forward {LENGTH(transports) == parameterLength} -- 0x0059
+</transfer>
+
+TRANSPORTS ::= SEQUENCE {
+    transportNum    INTEGER (SIZE 4 BYTES),
+    info    SET OF TRANSPORTINFO (SIZE CONSTRAINED)
+}
+<transfer>
+    Forward { CARDINALITY(info) == transportNum }
+</transfer>
+
+TRANSPORTINFO ::= SEQUENCE {
+    classID     INTEGER (SIZE 4 BYTES),
+    messageSizeMax INTEGER (SIZE 4 BYTES)
+}
+
+PIDDOMAINID ::= SEQUENCE {
+    parameterKind     INTEGER (SIZE 2 BYTES),
+    parameterLength   INTEGER (SIZE 2 BYTES),
+    domainId   OCTET STRING (SIZE CONSTRAINED)
+}
+<transfer>
+Back {parameterKind == 32783} -- 0x800f
+Forward {LENGTH(domainId) == parameterLength} -- 0x0059
+</transfer>
+
+PIDPEERHOSTEPOCH ::= SEQUENCE {
+    parameterKind     INTEGER (SIZE 2 BYTES),
+    parameterLength   INTEGER (SIZE 2 BYTES),
+    hostEpoch   OCTET STRING (SIZE CONSTRAINED)
+}
+<transfer>
+Back {parameterKind == 32782} -- 0x800e
+Forward {LENGTH(hostEpoch) == parameterLength} -- 0x0059
+</transfer>
+
+PIDROLENAME ::= SEQUENCE {
+    parameterKind     INTEGER (SIZE 2 BYTES),
+    parameterLength   INTEGER (SIZE 2 BYTES),
+    roleName   NESTEDSTRING (SIZE DEFINED) SLACK
+}
+<transfer>
+Back {parameterKind == 32778} -- 0x800a
+Forward {LENGTH(roleName) == parameterLength} -- 0x0059
+</transfer>
+
+PIDENTITYNAME ::= SEQUENCE {
+    parameterKind     INTEGER (SIZE 2 BYTES),
+    parameterLength   INTEGER (SIZE 2 BYTES),
+    entityName   NESTEDSTRING (SIZE DEFINED) SLACK
+    -- entityName STRLVAL (size defined)
+}
+<transfer>
+Back {parameterKind == 98} -- 0x0062
+Forward {LENGTH(entityName) == parameterLength} -- 0x0059
+</transfer>
+
+PIDPROPERTYLIST ::= SEQUENCE {
+    parameterKind     INTEGER (SIZE 2 BYTES),
+    parameterLength   INTEGER (SIZE 2 BYTES),
+    properties        PROPERTYLIST (SIZE DEFINED) -- should this also be SLACK?
+}
+<transfer>
+Back {parameterKind == 89} -- 0x0059
+Forward {LENGTH(properties) == parameterLength} -- 0x0059
+</transfer>
+
+
+PROPERTYLIST ::= SEQUENCE {
+    numProperties    INTEGER (SIZE 4 BYTES),
+    listt  SET OF PROPERTY (SIZE CONSTRAINED)
+}
+<transfer>
+Forward { CARDINALITY(listt) == numProperties }
+</transfer>
+
+PROPERTY ::= SEQUENCE {
+    name    NESTEDSTRING (SIZE DEFINED) SLACK MOD 4,
+    value   NESTEDSTRING (SIZE DEFINED) SLACK MOD 4
+}
+-- FEB 2020
+-- broken here. slack has two bytes. Need to fibgure out how
+-- to make sure the bytes are consumed, since these are all constant length
+-- for the lookahead algorithm. So if after PROTOCOLVERSIOIN bytes are consumed
+-- then have to see if the bytes consumed are equal to the bytes remainig, othersie
+-- consume the bytes...
+PIDPROTOVERSION ::= SEQUENCE {
+    parameterKind     INTEGER (SIZE 2 BYTES),
+    parameterLength   INTEGER (SIZE 2 BYTES),
+    protocolVersion   PROTOCOLVERSION (SIZE DEFINED) SLACK
+}
+<transfer>
+Back {parameterKind == 21} -- 0x0015 PID_PROTOCOL_VERSION
+Forward { LENGTH(protocolVersion) == parameterLength }
+</transfer>
+
+PROTOCOLVERSION ::= SEQUENCE {
+    major    INTEGER (SIZE 1 BYTES),
+    minor    INTEGER (SIZE 1 BYTES)
+}
+
+PIDPARTICIPANTGUID ::= SEQUENCE {
+    parameterKind    INTEGER (SIZE 2 BYTES),
+    parameterLength  INTEGER (SIZE 2 BYTES),
+    participantGuid  PARTICIPANTGUID (SIZE DEFINED) SLACK
+}
+<transfer>
+Back {parameterKind == 80} -- 0x0050 PID_PARTICIPANT_GUID
+Forward { LENGTH (participantGuid) == parameterLength }
+</transfer>
+
+PARTICIPANTGUID ::= SEQUENCE {
+    guid  GUIDPREFIX (SIZE DEFINED) BIGENDIAN,
+    entityID         ENTITYID (SIZE DEFINED) BIGENDIAN
+}
+
+PIDVENDORID ::= SEQUENCE {
+    parameterKind   INTEGER (SIZE 2 BYTES),
+    parameterLength INTEGER (SIZE 2 BYTES),
+    vendor        VENDORID (SIZE DEFINED) SLACK
+}
+<transfer>
+Back {parameterKind == 22} -- 0x0016 PID_VENDOR_ID
+Forward { LENGTH(vendor) == parameterLength }
+</transfer>
+
+VENDORID ::= SEQUENCE {
+    vendorID   INTEGER (SIZE 2 BYTES)
+}
+
+PIDPARTICIPANTBUILTENDPOINTS ::= SEQUENCE {
+    parameterKind   INTEGER (SIZE 2 BYTES),
+    parameterLength INTEGER (SIZE 2 BYTES),
+    builtIn         INTEGER (SIZE 4 BYTES)
+}
+<transfer>
+Back {parameterKind == 68 } -- 0x0044 PID_PARTICPANT_BUILTIN_ENDPOINTS
+</transfer>
+
+PIDBUILTINENDPOINTSET ::= SEQUENCE {
+    parameterKind   INTEGER (SIZE 2 BYTES),
+    parameterLength INTEGER (SIZE 2 BYTES),
+    builtIn         FLAGS (SIZE DEFINED) SLACK
+}
+<transfer>
+Back {parameterKind == 88 } --  0x0058 PID_PARTICIPANT_BUILTIN_ENDPOINT_SET
+Forward { LENGTH(builtIn) == parameterLength }
+</transfer>
+
+FLAGS ::= SEQUENCE {
+    flags INTEGER (SIZE 4 BYTES)
+}
+
+PIDMETATRAFFICUNILOCATOR ::= SEQUENCE {
+    parameterKind   INTEGER (SIZE 2 BYTES),
+    parameterLength INTEGER (SIZE 2 BYTES),
+    locator         LOCATOR (SIZE DEFINED) SLACK
+}
+<transfer>
+Back {parameterKind == 50 } --  0x0032 PID_METATRAFFIC_UNICAST_LOCATOR
+Forward { LENGTH(locator) == parameterLength }
+</transfer>
+
+PIDMETATRAFFICMULTILOCATOR ::= SEQUENCE {
+    parameterKind   INTEGER (SIZE 2 BYTES),
+    parameterLength INTEGER (SIZE 2 BYTES),
+    locator         LOCATOR (SIZE DEFINED) SLACK
+}
+<transfer>
+Back {parameterKind == 51 } --  0x0033 PID_METATRAFFIC_UNICAST_LOCATOR
+Forward { LENGTH(locator) == parameterLength }
+</transfer>
+
+PIDDEFUNILOCATOR ::= SEQUENCE {
+    parameterKind   INTEGER (SIZE 2 BYTES),
+    parameterLength INTEGER (SIZE 2 BYTES),
+    locator         LOCATOR (SIZE DEFINED) SLACK
+}
+<transfer>
+Back {parameterKind == 49 } --  0x0031 PID_DEFAULT_UNICAST_LOCATOR
+Forward { LENGTH(locator) == parameterLength }
+</transfer>
+
+PIDDEFMULTILOCATOR ::= SEQUENCE {
+    parameterKind   INTEGER (SIZE 2 BYTES),
+    parameterLength INTEGER (SIZE 2 BYTES),
+    locator         LOCATOR (SIZE DEFINED)
+}
+<transfer>
+Back {parameterKind == 72 } -- 0x0048 PID_DEFAULT_MULTICAST_LOCATOR
+</transfer>
+
+LOCATOR ::= SEQUENCE {
+   kind INTEGER (SIZE 4 BYTES),
+   port INTEGER (SIZE 4 BYTES),
+   address OCTET STRING (SIZE 16 BYTES)
+}
+
+PIDPARTICIPANTLIVECOUNT ::= SEQUENCE {
+    parameterKind   INTEGER (SIZE 2 BYTES),
+    parameterLength INTEGER (SIZE 2 BYTES),
+    manualLiveCount INTEGER (SIZE 4 BYTES)
+}
+<transfer>
+Back {parameterKind == 52 } -- 0x0034 -- PID_PARTICIPANT_MANUAL_LIVELINESS_COUNT
+</transfer>
+
+PIDPARTICIPANTLEASE ::= SEQUENCE {
+    parameterKind   INTEGER (SIZE 2 BYTES),
+    parameterLength INTEGER (SIZE 2 BYTES),
+    duration        LEASEDURATION (SIZE DEFINED) SLACK
+}
+<transfer>
+Back {parameterKind == 2 } -- 0x0002 PID_PARTICPANT_LEASE_DURATION
+Forward { LENGTH (duration) == parameterLength }
+</transfer>
+
+LEASEDURATION ::= SEQUENCE {
+    seconds     INTEGER (SIZE 4 BYTES),
+    fraction    INTEGER (SIZE 4 BYTES)
+}
+
+PIDSENTINAL ::= SEQUENCE {
+    parameterKind   INTEGER (SIZE 2 BYTES),
+    parameterLength INTEGER (SIZE 2 BYTES)
+}
+<transfer>
+Back {parameterKind == 1 } -- 0x0001 PID_SENTINAL
+</transfer>
+
+ENTITYID ::= SEQUENCE {
+    key  INTEGER (SIZE 3 BYTES),
+    kind INTEGER (SIZE 1 BYTES)
+} (ENCODED BY CUSTOM)
+
+SNSTATE ::= SEQUENCE {
+   bitmapBase OCTET STRING (SIZE 8 BYTES),
+   nmBits     INTEGER (SIZE 4 BYTES),
+   bitmap     SLACK (SIZE DEFINED) OPTIONAL
+} (ENCODED BY CUSTOM)
+<transfer>
+Forward {EXISTS(bitmap) == nmBits & 15} -- 0x0002 PID_PARTICPANT_LEASE_DURATION
+</transfer>
+
+SLACK ::= SEQUENCE {
+    slack    OCTET STRING (SIZE 4 BYTES)
+} (ENCODED BY CUSTOM)
+
+END

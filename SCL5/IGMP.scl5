@@ -1,0 +1,109 @@
+IGMP DEFINITIONS ::= BEGIN 
+   EXPORTS PDU;
+   
+PDU ::= ( V3Report | Query | V2Report | V2Leave)
+
+Query ::= SEQUENCE {
+   type INTEGER (SIZE 1 BYTES),
+   maxRespTime INTEGER (SIZE 1 BYTES),
+   checksum INTEGER (SIZE 2 BYTES),
+   groupAddr INTEGER (SIZE 4 BYTES),
+   v3Add V3Addition (SIZE DEFINED) OPTIONAL
+}
+<transfer>
+   Back{type == 17} -- 0x11
+   Forward { EXISTS(v3Add) == PDUREMAINING }
+   Callback
+</transfer>
+
+
+V3Addition ::= SEQUENCE {
+   resvSQRV INTEGER (SIZE 1 BYTES),
+   QQIC INTEGER (SIZE 1 BYTES),
+   numSources INTEGER (SIZE 2 BYTES),
+   srcAddrs SET OF SOURCEADDRESS (SIZE CONSTRAINED)
+} (ENCODED BY CUSTOM)
+<transfer>
+   Forward{CARDINALITY(srcAddrs)  == numSources}
+</transfer>
+
+V2Report ::= SEQUENCE {
+   type INTEGER (SIZE 1 BYTES),
+   maxRespTime INTEGER (SIZE 1 BYTES),
+   checksum INTEGER (SIZE 2 BYTES),
+   groupAddr INTEGER (SIZE 4 BYTES)
+} (ENCODED BY CUSTOM)
+<transfer>
+   Back{type == 22} -- 0x16
+   Callback
+</transfer>
+
+V2Leave ::= SEQUENCE {
+   type INTEGER (SIZE 1 BYTES),
+   maxRespTime INTEGER (SIZE 1 BYTES),
+   checksum INTEGER (SIZE 2 BYTES),
+   groupAddr INTEGER (SIZE 4 BYTES)
+} (ENCODED BY CUSTOM)
+<transfer>
+   Back{type == 23} -- 0x17
+   Callback
+</transfer>
+
+V3Report ::= SEQUENCE {
+   type INTEGER (SIZE 1 BYTES),
+   reserved INTEGER (SIZE 1 BYTES),
+   checksum INTEGER (SIZE 2 BYTES),
+   secondReserved INTEGER (SIZE 2 BYTES),
+   numGrps INTEGER (SIZE 2 BYTES),
+   groupRecordInfo SET OF GROUPRECORD (SIZE CONSTRAINED)
+} (ENCODED BY CUSTOM)
+<transfer>
+   Back{type == 34} -- 0x22
+   Forward{CARDINALITY(groupRecordInfo) == numGrps}
+   Callback
+</transfer>
+
+GROUPRECORD ::= (V3IncludeMode | V3ExcludeMode | V3GENERALGROUP)
+
+V3IncludeMode ::= SEQUENCE {
+   recordType INTEGER (SIZE 1 BYTES),
+   auxDataLen INTEGER (SIZE 1 BYTES),
+   numSources INTEGER (SIZE 2 BYTES),
+   groupAddr INTEGER (SIZE 4 BYTES),
+   srcAddrs SET OF SOURCEADDRESS (SIZE CONSTRAINED)
+} (ENCODED BY CUSTOM)
+<transfer>
+   Back{recordType == 1 || recordType == 3}
+   -- Back{numSources == 0}
+   Forward{CARDINALITY(srcAddrs) == numSources}
+</transfer>
+
+V3ExcludeMode ::= SEQUENCE {
+   recordType INTEGER (SIZE 1 BYTES),
+   auxDataLen INTEGER (SIZE 1 BYTES),
+   numSources INTEGER (SIZE 2 BYTES),
+   groupAddr INTEGER (SIZE 4 BYTES),
+   srcAddrs SET OF SOURCEADDRESS (SIZE CONSTRAINED)
+} (ENCODED BY CUSTOM)
+<transfer>
+   Back{recordType == 2 || recordType == 4}
+   -- Back{numSources == 0}
+   Forward{CARDINALITY(srcAddrs) == numSources}
+</transfer>
+
+V3GENERALGROUP ::= SEQUENCE {
+   recordType INTEGER (SIZE 1 BYTES),
+   auxDataLen INTEGER (SIZE 1 BYTES),
+   numSources INTEGER (SIZE 2 BYTES),
+   groupAddr INTEGER (SIZE 4 BYTES),
+   srcAddrs SET OF SOURCEADDRESS (SIZE CONSTRAINED)
+} (ENCODED BY CUSTOM)
+<transfer>
+   Back{numSources != 0}
+   Forward{CARDINALITY(srcAddrs) == numSources}
+</transfer>
+
+SOURCEADDRESS ::= SEQUENCE {
+  srcAddr INTEGER (SIZE 4 BYTES)
+} (ENCODED BY CUSTOM)
+END

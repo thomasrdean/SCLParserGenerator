@@ -1,0 +1,115 @@
+<?xml version="1.0"?>
+<!--
+R5 DEFINITIONS ::= BEGIN
+
+    EXPORTS PDU;
+
+    PDU ::= (R51 | R52)
+
+    R51 ::= SEQUENCE {
+	a INTEGER (SIZE 1 BYTES),
+	b INTEGER (SIZE 4 BYTES),
+    } (ENCODED BY CUSTOM)
+    <transfer>
+	Back{a == 10 }
+    </transfer>
+
+    R52 ::= SEQUENCE {
+	c INTEGER (SIZE 1 BYTES),
+	d INTEGER (SIZE 4 BYTES),
+	e INTEGER (SIZE 4 BYTES),
+    } (ENCODED BY CUSTOM)
+    <transfer>
+	Back{c == 20 }
+    </transfer>
+END
+-->
+<serialized-grammar>
+    <name>R5</name>
+    <exports><user-type>PDU_R5</user-type></exports>
+    <user-type-decl>
+        <decision>
+	    <name>PDU_R5</name>
+	    <choices>
+		<choice>
+		    <name>R51</name>
+		    <type>R51_R5</type>
+		</choice>
+		<choice>
+		    <name>R52</name>
+		    <type>R52_R5</type>
+		</choice>
+	    </choices>
+        </decision>
+    </user-type-decl>
+    <user-type-decl>
+	<record>
+	    <name>R51_R5</name>
+	    <encoding>CUSTOM</encoding>
+	    <recordCat>SEQ</recordCat>
+	    <fields>
+		<field>
+		    <name>a</name>
+		    <type>INT1</type>
+	        </field>
+		<field>
+		     <name>b</name>
+		     <type>INT4</type>
+	        </field>
+	    </fields>
+            <back-constraints>
+               <back-constraint>
+                   <exprBinOp op='=='>
+                      <exprID>a</exprID>
+                      <exprVal type="int">10</exprVal>
+                   </exprBinOp>
+               </back-constraint>
+            </back-constraints>
+	</record>
+    </user-type-decl>
+    <user-type-decl>
+	<record>
+	    <name>R52_R5</name>
+	    <encoding>CUSTOM</encoding>
+	    <recordCat>SEQ</recordCat>
+	    <fields>
+	        <field>
+		    <name>c</name>
+		    <type>INT1</type>
+	        </field>
+	        <field>
+		    <name>d</name>
+		    <type>INT4</type>
+	        </field>
+	        <field>
+		    <name>e</name>
+		    <type>INT4</type>
+	        </field>
+	    </fields>
+            <back-constraints>
+               <back-constraint>
+                   <exprBinOp op='=='>
+                      <exprID>c</exprID>
+                      <exprVal type="int">20</exprVal>
+                   </exprBinOp>
+               </back-constraint>
+            </back-constraints>
+	</record>
+    </user-type-decl>
+    <user-type-decl>
+	<token>
+	   <name>INT1</name>
+	   <type>INTEGER</type>
+	   <byte-size>1</byte-size>
+	   <text>Octet</text>
+	</token>
+    </user-type-decl>
+    <user-type-decl>
+	<token>
+	    <name>INT4</name>
+	    <type>INTEGER</type>
+	    <byte-size>4</byte-size>
+	    <text>Octet</text>
+	</token>
+    </user-type-decl>
+</serialized-grammar>

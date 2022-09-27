@@ -1,0 +1,1154 @@
+\documentclass[12pt,oneside,letterpaper]{article}
+\usepackage{float}
+\usepackage[utf8]{inputenc}
+\usepackage[letterpaper,width=160mm,top=25mm,bottom=25mm]{geometry}
+
+
+\usepackage{enumitem}
+
+% TD. This comes from report template, so I'll have to check
+% them later.
+
+\usepackage{graphicx}
+
+\usepackage{listings}
+\lstset{basicstyle=\ttfamily,frame=single,xleftmargin=3em,xrightmargin=3em}
+\lstset{aboveskip=20pt,belowskip=20pt}
+
+\graphicspath{{figures/}} %Setting the graphicspath
+
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric,arrows,positioning,shadows}
+
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    citecolor=blue,
+    linkcolor=blue,
+    urlcolor=blue,
+    pdftitle={SCL/IBED Binary Parser/IDS Generator and Runtime}
+}
+    
+\usepackage{color}
+\usepackage{xcolor}
+
+\definecolor{codered}{HTML}{FF3333}
+\definecolor{codeblue}{HTML}{3333FF}
+\definecolor{codeblack}{HTML}{000000}
+
+\newcommand{\cmark}{\ding{51}}%
+\newcommand{\xmark}{\ding{55}}%
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codegraydark}{rgb}{0.7,0.7,0.7}
+\definecolor{codepurple}{rgb}{0.1,0.1,0.1}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.95}%{1.0,1.0,1.0}
+\definecolor{backcolour2}{rgb}{0.37,0.37,0}
+
+%\renewcommand\abstractname{Introduction}
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},
+    numberstyle=\ttfamily,
+    stringstyle=\color{codeblue2},
+    basicstyle=\fontsize{9}{11}\selectfont\ttfamily,%\ttfamily\tiny,%\linespread{0.5},
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=3pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2,
+    %moredelim=**[is][\color{codered}]{@}{@},
+   % moredelim=**[is][\color{codeblue}]{^}{^},
+}
+
+\lstdefinelanguage{SCL}
+{
+    morekeywords={DEFINITIONS,BEGIN,END,EXPORTS,IMPORTS,FROM},
+    morekeywords={SEQUENCE, SET, INTEGER},
+    morekeywords={BOOLEAN,INTEGER, REAL, OCTET, STRING }
+    morekeywords=[2]{BITS, BYTES, SIZE, VALUE, TERMINAL},
+    morecomment=[l]{--},
+    commentstyle=\color{backcolour2},
+    keywordstyle=\color{codeblue},
+    keywordstyle=[2]\color{codeblue},
+}
+
+\lstdefinelanguage{SCL2}
+{
+    morekeywords={DEFINITIONS,BEGIN,END,EXPORTS,IMPORTS,FROM},
+    morekeywords={SEQUENCE, SET, INTEGER},
+    morekeywords={BOOLEAN,INTEGER, REAL, OCTET, STRING }
+    morekeywords=[2]{BITS, BYTES, SIZE, VALUE, TERMINAL},
+    %literate={^}{$\wedge$}{1},
+    %literate={^}{\textasciicircum}{1},
+    %literate={^}{\verb!^!}{1},
+    morecomment=[l]{--},
+    %commentstyle=\color{backcolour2},
+    keywordstyle=\color{codeblue},
+    keywordstyle=[2]\color{codeblue},
+}
+
+\lstdefinelanguage{dsl1}
+{
+    morekeywords={INSTANTIATE,BIND,DESTROY,EVALUATE},
+    morekeywords=[2]{IGMP,RTPS, V2Report,V3Report,DATAPSUB,V3Leave,V2Leave,DATAWSUB,DATARSUB},
+    morekeywords=[3]{loop,if,case,endif,endloop,endswitch,switch},
+    morecomment=[s]{/*}{*/},
+    commentstyle=\color{backcolour2},
+    keywordstyle=\color{codeblue},
+    keywordstyle=[2]\color{codeblue},
+    keywordstyle=[3]\color{codeblue}
+}
+
+\lstdefinestyle{CStyle}{
+    backgroundcolor=\color{backcolour},   
+    numberstyle=\ttfamily\scriptsize\color{codegray},
+    stringstyle=\color{codeblue},
+    keywordstyle=\color{codeblue},
+    basicstyle=\ttfamily\scriptsize ,
+    breakatwhitespace=false,         
+    breaklines=true, 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=3pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2,
+    language=C
+}
+
+\title{SCL Binary Parser Generator\\ and Runtime\\ \small{v. 2021-1}}
+\author{Thomas R Dean}
+
+\begin{document}
+
+\maketitle
+
+%\begin{center}
+%\includegraphics[width=0.7\linewidth]{PhysLogger.png}
+%\end{center}
+
+\begin{abstract}
+The initial version of SCL was created by Sylvain Marquis as part of his M.Sc. thesis.
+It has evolved in parallel with the IBED language (ref) as multiple graduate students over the years have added to the system.
+
+This manual provides a current description of the SCL, the generator and an outline of the code that it generates.
+\end{abstract}
+
+\clearpage
+\tableofcontents
+
+\clearpage
+
+\section{Overview of SCL and IBED}
+\label{sec:Overview}
+
+SCL and IBED are two languages part of a framework to generate custom grammar based fuzzing systems and intrusion detection systems. SCL is a domain specific language used to specify a packet parser for binary messaging protocols. It was originally used for grammar based fuzzing research and later for intrusion detection. IBED \cite{RakhaWISTP19} is a domain specific language for specifying constraints on network protocols. It was developed as part of intrusion detection research.
+
+\subsection{SCL}
+\label{sec:SCL}
+
+SCL is a domain specific language is based on an extension to a subset of ASN.1. In the original research\cite{MILCOM04} the protocols we were working with were BER/DER\cite{DER} encoded protocols that were initially specified in ASN.1. One of the key features of these protocols is the use of Tag, Length, and Value(TLV) encoding of all elements of the grammar. We used custom code, and later a parameterised engine\cite{PST04} to decode and re-encoded the mutated values. SCL was developed to specify this process more cleanly in a domain specific language (DSL), we adopted ASN.1 as a core of the language for this reason. 
+
+However, Several of the protocols, such as OSPF\cite{OSPF} and BGP\cite{BGP} are not specified in ASN.1, and did not use the self decoding TLV provided by BER and DER. These protocols had mostly constant size primitive fields (e.g. the router id field in OSPF is 4 bytes in length), and encoded the length of other fields in a variety of ways. Thus we added a relatively rich set of size constraints to the language to direct the parser.
+
+From the SCL description an XML configuration for a parser written in Java was created. The same XML configuration was used by the encoding engine to generate the mutated packets after fuzzing. Speed was not a concern, as the test data was done off line, and a significant number of test cases could be generated automatically for later injection into the test system. The system was used on several research projects[zhang,abo], and gradually grew to include constraints between packets and system to patch non-intentional errors introduced by mutations. For example, if a protocol has nested variable length fields, specified by specific fields, and a mutation is made to a value inside, all of the lengths must be changed to be consistent.
+
+The goal of the next project was a real time Intrusion Detection System (IDS). This made the speed of the parser an issue. An encoder wasn't needed, and the protocols involved were not DER/BER encoded. Several weaknesses in the design of the original version of SCL had become apparent from the previous projects. 
+
+We incorporated some changes into the language itself, and the translation was changed to generate a C parser directly from the specification. We did not implement the entire capability of the SCL language in the new version, such as the use of DER/BER in the encoding engine. This is future work for the translation engine.  Recently SCL will generate a serializer that will reencode the data structure into a binary buffer. It will also provide routines to print out a human friendly version of a message or part of a message.
+ 
+\section{SCL Language}
+
+We start with an explanation of the ASN.1 subset that is used in the SCL language. We then describe the SCL additions to this subset.
+
+\subsection{ASN.1 Subset}
+Like ASN.1, a SCL specification is a set of modules. Each module defines a set of \textit{type names}. A type represents the type of an individual data item in a message, or it is a structured type that represents a group of data items. These types together give one or more grammars for the messages defined in a particular protocol. Listing \ref{Code:skeletonmodule} shows the skeleton the ASN.1 subset of a module. The module begins with the module name and ends with the keyword \textit{END}. The type names that form the roots of the grammars are listed in the \textit{EXPORTS} clause of the module. If the module needs types from another SCL module, it names the types and the modules they come from in the \textit{IMPORTS} clause.
+
+
+\begin{lstlisting}[language=SCL2,style=mystyle,frame=none,
+caption=Skeleton Module,label=Code:skeletonmodule, xleftmargin=3.5ex]
+ModuleName DEFINITIONS ::= BEGIN
+    EXPORTS TypeName1;
+    IMPORTS TypeName2, TypeName3 FROM ExternalModule1
+            TypeName4 FROM ExternalModule2;
+    -- Rules
+END
+\end{lstlisting}
+
+SCL currently supports two top level type specifications. These are \textit{type decisions}
+%, \textit{type aliases}
+ and structured types. The first, type decisions, specify an alternate set of types to recognize. The general form is:
+
+\vspace{10pt}
+$TypeName1 ::= (TypeName2 \: | \: TypeName3 \: | \: TypeName4 \: | \: ...)$
+\vspace{10pt}
+
+%A type alias gives a user name for one of the built in types. For example, an Version 4 IP address might be parsed as as a single 32 bit integer.
+
+%vspace{10pt}
+%IPAddress ::= INTEGER
+%\vspace{10pt}
+
+The last form of type specification assembles other types into more complex types. Although ASN.1 allows both SETs and SEQUENCEs, SCL only supports the SEQUENCE type as shown in listing \ref{Code:seqskel}. The sequence has a name, and uses braces to delimit the list of fields in the record.
+
+\begin{lstlisting}[language=SCL2,style=mystyle,frame=none,
+caption=Skeleton Structure Type,label=Code:seqskel, xleftmargin=3.5ex]
+    TypeName ::= SEQUENCE {
+       -- Field Definitions
+       Field1 FieldType1,
+       Field2 FieldType2
+    }
+\end{lstlisting}
+
+Listing \ref{Code:arp} shows the ARP protocol which is made up of a single packet type.
+
+\begin{lstlisting}[language=SCL2,style=mystyle,frame=none,
+caption=ASN.1 Subset for ARP Message,label=Code:arp, xleftmargin=3.5ex]
+ARP DEFINITIONS ::= BEGIN
+    EXPORTS PDU;
+    PDU ::= SEQUENCE {
+        hwType          INTEGER,
+        protocolType    INTEGER,
+        hwSize          INTEGER,
+        protocolSize    INTEGER,
+        opcode          INTEGER,
+        senderMAC       OCTET STRING,
+        senderIP        INTEGER,
+        targetMAC       OCTET STRING,
+        targetIP        INTEGER
+    } 
+END
+\end{lstlisting}
+
+The ASN.1 built in types currently implement in SCL are:
+
+\begin{itemize}
+    \item \textbf{BOOLEAN}: one or more bytes that represents a boolean value.
+    \item \textbf{INTEGER}: one or more bytes that represents an integer number.
+    \item \textbf{REAL}: one or more bytes that represents a floating point number.
+    \item \textbf{OCTET STRING}: one or more bytes that are just bytes.
+\end{itemize}
+
+In addition to the built in types, there is also the SEQUENCE OF and SET OF modifiers for field types. These specify the field is an array of elements of a given type. In Listing \ref{Code:topics}, the topicData field contains multiple instances of TOPICPARMS.
+
+\begin{lstlisting}[language=SCL2,style=mystyle,frame=none,
+caption=Example SET OF Modifier,label=Code:topics, xleftmargin=3.5ex]
+    TOPICS ::= SEQUENCE {
+        encapsKind  INTEGER,
+        encapsOpts  INTEGER,
+        topicData   SET OF TOPICPARMS
+    }
+\end{lstlisting}
+
+\subsection{SCL Additions}
+\label{sec:SCLAdd}
+
+The subset is extended by SCL in to provide size information and other semantic information about the fields. SCL is also extended to provide parser optimizations and control how the parser calls the rest of the engine.
+
+The first extension gives the size of each field in a structure. This takes the form of an annotation after the type of the field. The simplest form simply specifies the number of bytes (or bits) that the field occupies as shown in Listing \ref{Code:arpsize} for the ARP packet. The annotation ENCODED BY CUSTOM, which is the default, specifies that the entire structure is not BER/DER encoded.
+
+\begin{lstlisting}[language=SCL2,style=mystyle,frame=none,
+caption=Constant Field Sizes,label=Code:arpsize, xleftmargin=3.5ex]
+ARP DEFINITIONS ::= BEGIN
+    EXPORTS PDU;
+    PDU ::= SEQUENCE {
+        hwType          INTEGER (SIZE 2 BYTES),
+        protocolType    INTEGER (SIZE 2 BYTES),
+        hwSize          INTEGER (SIZE 1 BYTES),
+        protocolSize    INTEGER (SIZE 1 BYTES),
+        opcode          INTEGER (SIZE 2 BYTES),
+        senderMAC       OCTET STRING (SIZE 6 BYTES),
+        senderIP        INTEGER (SIZE 4 BYTES),
+        targetMAC       OCTET STRING (SIZE 6 BYTES),
+        targetIP        INTEGER (SIZE 4 BYTES)
+    } (ENCODED BY CUSTOM)
+END
+\end{lstlisting}
+
+The other options for the size annotation is \textit{DER} which specifies that a field is DER encoded, \textit{DEFINED} which is used on user defined types and states that the size of that field is derived from the type, and \textit{CONSTRAINED} which states that the size of the field is given in a constraint. Listing \ref{Code:rtpsping1} shows an example of the DEFINED size. in this case, HEADER is another structured type whose size is given in the type definition.
+
+\begin{lstlisting}[language=SCL2,style=mystyle,frame=none,
+caption=Fields with Defined Size,label=Code:rtpsping1, xleftmargin=3.5ex]
+    PING ::= SEQUENCE {
+        Header  HEADER (SIZE DEFINED),
+        ping    OCTET STRING (SIZE 8 BYTES)
+    } (ENCODED BY CUSTOM)
+\end{lstlisting}
+
+Listing \ref{Code:nestedstring} shows the use of a CONSTRAINED field. In this case, the value of the \textit{nameLength} field specifies the number of characters in the OCTET STRING that contains the value of the field \textit{name}. Constraints on parsing and well formedness of packets are given in the transfer block which takes the form of an xml markup after the type definition. The Forward keyword specifies that the constraint is for something that has not yet been parsed. In this case, the length of the name. 
+
+\begin{lstlisting}[language=SCL2,style=mystyle,frame=none,float,
+caption=Forward Length Constraint,label=Code:nestedstring, xleftmargin=3.5ex]
+    NESTEDSTRING ::= SEQUENCE {
+        nameLength      INTEGER (SIZE 4 BYTES),
+        name            OCTET STRING (SIZE CONSTRAINED),
+    }
+    <transfer>
+        Forward { LENGTH(name) == nameLength }
+    </transfer>
+\end{lstlisting}
+
+Listing \ref{Code:topics2} shows an example applied to the SET OF modifier for a field. The number of elements in the set of array can be specified in three ways. The first is the total number of bytes used, which would be constrained using a LENGTH constraint as shown above. The second is a \textit{CARDINALITY} constraint, where the parser uses one field to specify a count of the number of items. The third is the \textit{TERMINATE} constraint which specifies the type of the last item in the list. The example is taken from the RTPS protocol where TOPICPARMS is a type decision that provides a variety of topic parameters types such as the topic name. One of the topic types is a type named PIDSENTINAL, which is used to specify the end of the data. The last is the \textit{END} constraint that specifies the sequence runs to the end of the data in the message.
+
+\begin{lstlisting}[language=SCL2,style=mystyle,frame=none,
+caption=Forward Terminate Constraint,label=Code:topics2, xleftmargin=3.5ex]
+    TOPICS ::= SEQUENCE {
+        encapsKind INTEGER (SIZE 2 BYTES),
+        encapsOpts INTEGER (SIZE 2 BYTES),
+        topicData SET OF TOPICPARMS (SIZE CONSTRAINED)
+    }
+    <transfer>
+        Forward { TERMINATE(topicData) == PIDSENTINAL}
+    </transfer>
+\end{lstlisting}
+
+Back constraints are constraints on the values of items that are checked after the items involved are parsed. For example, all RTPS packets have an initial four byte signature field that contains the value RTPS or RTPX. A topic parameter is a structure that contains 1) an integer identifier of the parameter, 2) the length of the value of the parameter and 3) the value of the parameter. The type of the value depends in part on the type of the parameter. Examples of both cases is shown in Listing \ref{Code:backConstraints}. The first example shows the header for a full RTPS message. For the packet to be recognized as an RTPS packet, the protoName sub field of Header field must have the value RPTS or RTPX. The constraint on the set of sub messages is that the end of the message is reached when parsing subMsg.
+
+\begin{lstlisting}[language=SCL2,style=mystyle,frame=none,float,
+caption=Eample Back Constraints,label=Code:backConstraints, xleftmargin=3.5ex]
+    FULL ::= SEQUENCE {
+        Header  HEADER (SIZE DEFINED),
+        guidPrefix  GUIDPREFIX (SIZE DEFINED),
+        subMsg  SET OF SUBMESSAGE (SIZE CONSTRAINED)
+    } (ENCODED BY CUSTOM)
+    <transfer>
+        Back { Header.protoName == 'RTPS'
+            || Header.protoName == 'RTPX' } -- 0x52545053
+        Forward { END(subMsg) }
+    </transfer>
+
+    -- All RTPS have same header
+    HEADER ::= SEQUENCE {
+        protoName   OCTET STRING  (SIZE 4 BYTES),
+        version         INTEGER (SIZE 2 BYTES),
+        vendorId    INTEGER (SIZE 2 BYTES)
+    } (ENCODED BY CUSTOM)
+
+    PIDTYPECONSISTENCY ::= SEQUENCE {
+        parameterKind    INTEGER (SIZE 2 BYTES),
+        parameterLength  INTEGER (SIZE 2 BYTES),
+        typeConsistencyKind  TYPECONSISTENCYKIND
+                                    (SIZE DEFINED)
+    }
+    <transfer>
+        Back { parameterKind == 116 } --  0x0074
+        Forward { LENGTH(typeConsistencyKind)
+                    == parameterLength }
+    </transfer>
+\end{lstlisting}
+
+The type PIDTYPECONSISTENCY is identified when the first two bytes of the structure have the value 116. In an unoptimized parser, the parser first parses the field (e.g. Header or parameterKind) and then checks that the value is correct before parsing. Our LL(K) optimization checks the value before parsing to minimize the amount of data manipulation.
+
+Listing \ref{Code:optional} shows the optional and endian extensions to the language. The field inlineQos in the RTPS protocol is optional, and is only present if the second bit in the flags field is set. While the standard network byte order is big endian, some protocols are more flexible. In particular RTPS allows different parts of messages to be encoded in different byte orders, and this is inherited by sub parts of the message. The listing shows the DATASUB type which is a sub message of the general RTPS message. The low order bit flags field specifies the byte order of the entire message, including the serialized data. However, the readerEnt and writerEnt fields are always transmitted in network byte order, so the BIGENDIAN option on that field overrides the endianness of the rest of the sub messages specified in the forward constraint.
+
+\begin{lstlisting}[language=SCL2,style=mystyle,frame=none,
+caption=Example of Exists and Endian Constraints,label=Code:optional, xleftmargin=3.5ex]
+    DATASUB ::= SEQUENCE {
+        kind       INTEGER (SIZE 1 BYTES),
+        flags      INTEGER (SIZE 1 BYTES),
+        nextHeader INTEGER (SIZE 2 BYTES),
+        extraFlags INTEGER (SIZE 2 BYTES),
+        qosOffset  INTEGER (SIZE 2 BYTES),
+        readerEnt  ENTITYID (SIZE DEFINED) BIGENDIAN,
+        writerEnt  ENTITYID (SIZE DEFINED) BIGENDIAN,
+        writerSEQ  INTEGER (SIZE 8 BYTES),
+        inlineQos  QOSPARM (SIZE DEFINED) OPTIONAL,
+        serializedData OCTET STRING (SIZE CONSTRAINED)
+    } (ENCODED BY CUSTOM)
+    <transfer>
+        Back {kind == 21} -- 0x15
+        Back {writerEnt.kind == 2 || writerEnt.kind == 3 }
+        Forward { ENDIANNESS == flags & 1 }
+        Forward { EXISTS(inlineQos) == flags & 2 }
+        -- other constraints
+    </transfer>
+\end{lstlisting}
+
+There are several predefined names that can be used in the constraints. These are:
+\begin{itemize}
+    \item \textbf{PDULENGTH}: the total length of the message passed to the parser.
+    \item \textbf{PDUREMAINING}: the number of bytes left in the message.
+    \item \textbf{DSTPORT}: The destination port (for IP messages). Some networks installations run protocols on non standard ports. This constraint allows the developer to specify which port is used.
+    \item \textbf{SRCPORT}: The source port (for IP messages).
+    \item \textbf{LENGTH(field)}: The length of a given field in a structure.
+    \item \textbf{CARDINALITY(field)}: The number of elements in a SET or SEQUENCE.
+\end{itemize}
+
+In some cases, the grammar is ambiguous without some outside information. In particular, the application data parser that was built for RTPS. In this case the serializedData field in the data sub message, shown in figure \ref{Code:optional}, contains a structure from the application. The type of the data in that field is defined in the ENTITYID structure given by the writerEnt field. However that value is dynamically assigned, and given in a previous RTPS message. Our engine tracked the values of the entity id messages so at run time we know what type of data is present. While we could have specified a separate parser in a separate SCL file for each of the messages, it was a bit more convenient to have all of the application structures in a single file.
+
+The GLOBAL annotation gives the name of an external integer variable that will be declared by the parser. As a constraint, it specifies that the variable must have that value in order to apply a given type rule to the parse. In the listing, the global variable is called \textit{AppDat}. The first type definition is a type decision that gives all of the application data records carried by the protocol. If the writerEnt field for the DATASUB matches the one for a SSRModeCType data record, the parsing framework will set the variable AppDat to the value 5 before calling the application parser on serializedData. This will direct the parser to parse the data as a Secondary Surveillance Radar Mode C data structure.
+
+\begin{lstlisting}[language=SCL2,style=mystyle,frame=none,
+caption=Example of Global Specification,label=Code:global, xleftmargin=3.5ex]
+AppData DEFINITIONS ::= BEGIN
+    EXPORTS PDU;
+    PDU ::= (SSRModeSType | SSRModeCType | SSRModeAType | PSRType | FSDMessageType | FPType) < transfer >
+        Back {GLOBAL (AppDat)}
+        Callback
+    </ transfer >
+
+    SSRModeCType ::= SEQUENCE {
+        timestamp INTEGER (SIZE 4 BYTES) ALIGN 4,
+        equipment_id INTEGER (SIZE 4 BYTES) ALIGN 4,
+        altitude REAL (SIZE 8 BYTES) ALIGN 8,
+        target_id INTEGER (SIZE 4 BYTES) ALIGN 4
+    } < transfer >
+        Back {GLOBAL (AppDat) == 5}
+    </ transfer >
+    
+    -- Other AppData Types
+END
+\end{lstlisting}
+
+There are some cases where one grammar might match the first part of another grammar. For example, some protocols do not contain magic numbers at the beginning of messages (such as the 'RTPS' at the beginning of RTPS messages). Since there are no direct clues, the beginning of an NFS message might be matched as an NTP message. To minimize this, the constraint \textit{All Bytes Used} may be added to structured types to indicate that all of the bytes in the current buffer must be used by the end of the structure. Since a SCL module may be used to parse part of another message, this is left to developer control.
+
+The last extension has to do with the interface from the parser to the rest of the software. The previous version of SCL generated a generic tree structure with the names and values stored dynamically in the tree. The new version generates a custom C data structure that is similar to the data structure specified by the ASN.1 subset of the langugage. Choice decisions are represented by a tag and union data type in C. If the parser returned a  tagged union for the data type shown in Figure \ref{Code:callback1}, then the rest of the sofware would have to test the tag to determine which stucture was returned. This is optimized by the use of the Callback annotation. When the parser recognizes a Type given in the type decision, it calls a function specific to that type. Listing  the function called when a RTPS ping message is recognized. The first parameter is the data structure generated by the parser, while the second is a pointer to the raw data including the IP header for information about addresses and ports.
+
+\begin{lstlisting}[language=C,style=CStyle,frame=none,
+caption=RTPS Ping Callback,label=Code:callback1, xleftmargin=3.5ex]
+void PING_RTPS_callback (PING_RTPS * ping_rtps, PDU * thePDU);
+\end{lstlisting}
+
+As part of the generation process, prototypes for those functions are declared. The rest of the software must implement the function that is called when the packet is recognized. A further optimization is implemented that recognizes protocols that contain a header followed by a sequence of sub messages. Examples are the Full type in RTPS (figure \ref{Code:backConstraints}) where the header is followed by a set of SUBMESSAGE, or IGMP version 3 where a message contains a list of group addresses. In this case the parser generates a separate data structure for the entire packet, and a separate callback for each of the sub messages, such as the interface shown in Figure \ref{Code:callback2}. In this case, the first parameter has the structure for the entire packet, but only the fields associated with the header are used, and the second parameter contains the data strucutre of the sub message, and the third is the same as above.
+
+\begin{itemize}
+    \item Note that the pointer for the sub data structure is not created for submessage optimization
+    \item the data structure is freed before returning, so cannot be used by the caller of the parser.
+\end{itemize}
+
+\begin{lstlisting}[language=C,style=CStyle,frame=none,
+caption=Submessage Callback,label=Code:callback2, xleftmargin=3.5ex]
+void DATASUB_RTPS_callback (FULL_RTPS * full_rtps, DATASUB_RTPS * datasub_rtps, PDU * thePDU);
+\end{lstlisting}
+
+
+\section {Translator}
+\label{sec:translator}
+The translator is written in the language TXL\cite{txl}. Txl is a strongly typed, functional, source transformation language.  The approach taken is a sequence of transformations that add annotations to the SCL specification, and a final set of transformations that transform the specification to an XML file for a Python interpreter or to C code to provide a native parser.
+
+Figure \ref{fig:Proc} shows the overall process of the translator. The first two stages, UID Decl and UID Ref give each entity in the specification a unique name. They also check that names are unique, and that all of the names used are declared.The Check Imports stage checks that the types imported in one module were a subset of the modules exported from the other module. 
+
+The next three stages, Callback Annotation, LL1 Optimization and LL(k) optimization analyze the specification and add annotations to assist the code generator. There are currently two code generators. One generates a C implementation of the parser, the other generates an XML file that can by used by an interpreter to parse the messages. We describe each of the stages of the translation in turn.
+
+\tikzstyle{data} = [rectangle, text centered, draw=black]
+\tikzstyle{proc} = [rectangle, rounded corners, text centered, draw=black]
+\tikzstyle{arrow} = [thick, ->, >=stealth]
+%\noindent
+\begin{figure}
+\centering
+\begin{tikzpicture}[align=center]
+
+% common part of translator
+\node(SclSpec) [data] {Scl\\Spec};
+\node(Decl) [proc, right of=SclSpec, xshift=0.75cm] {UID\\Decl};
+\node(Ref) [proc, right of=Decl, xshift=0.75cm] {UID\\Ref};
+\node(Check) [proc, below of=Ref, yshift=-0.75cm] {Check\\Imports};
+\node(Call) [proc, right of=Ref, xshift=1cm] {Callback\\Annot};
+\node(Opt1) [proc, right of=Call, xshift=1cm] {LL(1)\\Opt};
+\node(Optk) [proc, right of=Opt1, xshift=0.75cm] {LL(k)\\Opt};
+\draw [arrow] (SclSpec) -- (Decl);
+\draw [arrow] (Decl) -- (Ref);
+\draw [arrow] (Ref) -- (Call);
+\draw [arrow] (Call) -- (Opt1);
+\draw [arrow] (Opt1) -- (Optk);
+\draw [arrow] (Ref) -- (Check);
+% code generators
+% C gernerator
+\node(GenCode) [proc, right of=Optk, xshift=1cm, yshift=0.75cm] {Gen\\C Code};
+\node(Head) [data, right of=GenCode, xshift=1cm, yshift=0.25cm] {Hdrs};
+\node(Code) [data, right of=GenCode, xshift=1cm,yshift=-0.75cm] {C\\Files};
+\draw [arrow] (Optk) -- (GenCode);
+\draw [arrow] (GenCode) -- (Head);
+\draw [arrow] (GenCode) -- (Code);
+
+%XML Generator
+\node(GenXML) [proc, right of=Optk, xshift=1cm, yshift=-1.5cm] {Gen\\XML};
+\node(XMLOut) [data, right of=GenXML, xshift=1cm] {XML\\Spec};
+\draw [arrow] (Optk) -- (GenXML);
+\draw [arrow] (GenXML) -- (XMLOut);
+
+
+\end{tikzpicture}
+\caption{Generation Process}
+\label{fig:Proc}
+\end{figure}
+
+%\node(GenH) [proc, right of=Optk, xshift=0.75cm, yshift=0.75cm] {Gen\\Hdrs};
+%\node(GenCode) [proc, right of=Optk, xshift=0.75cm, yshift=-0.75cm] {Gen\\Code};
+%\node(Sort) [proc, right of=GenH, xshift=0.75cm] {Sort\\Hdrs};
+%\node(Head) [data, right of=Sort, xshift=0.75cm] {Hdr};
+%\node(Code) [data, right of=GenCode, xshift=2.5cm] {Code};
+%\draw [arrow] (Optk) -- (GenH);
+%\draw [arrow] (Optk) -- (GenCode);
+%\draw [arrow] (GenH) -- (Sort);
+%\draw [arrow] (Sort) -- (Head);
+%\draw [arrow] (GenCode) -- (Code);
+
+\subsection{Rename Declarations}
+\label{sec:RenameDeclarations}
+Rename Declarations is the first stage of the process. It generates a unique name for every entity declared in the system.  Unlike languages like C or Java, there are only three scope levels in the language, so unique naming is relatively simple. A file in SCL consists of one or more modules, each of which has a unique name at the global level.  The approach taken is similar to the approach taken in LS/2000[ref] and Lei Wang's thesis [ref].
+
+Each module consists of a sequence of type definitions, each of which has a name. Structured types (i.e. SEQUENCE \{ ... \} ) have fields. Two fields with the same name in different structured types are different fields. For example, in listing \ref{Code:lexical}, both of the structured types \textit{B} and \textit{C} have a field named f. We use the same approach as LS2000 [ref]. Unique naming  works from the outside end, appending the name of the outer scopes to names in the inner scopes. Thus \textit{B} becomes \textit{B\_A} and the \texttt{f} in \texttt{B} becomes \texttt{f\_B\_A} while the \texttt{f} in \texttt{C} becomes \texttt{f\_C\_A}.
+
+\begin{lstlisting}[language=SCL2,style=mystyle,frame=none,
+caption=Lexical Levels,label=Code:lexical, xleftmargin=3.5ex]
+A DEFINITIONS ::= BEGIN
+    EXPORTS PDU;
+    IMPORTS M from N.
+    PDU ::= (B | C )
+
+    B ::= SEQUENCE {
+        f INTEGER (SIZE 4 BYTES),
+        g X (SIZE 4 BYTES),
+    }
+    <transfer>
+       Back{ f == 2 }
+    </transfer>
+    
+    C ::= SEQUENCE {
+        h INTEGER (SIZE 4 BYTES),
+        f INTEGER (SIZE 4 BYTES),
+    }
+    <transfer>
+       Back{ h == 5 }
+    </transfer>
+    
+    X ::= SEQUENCE {
+        y INTEGER (SIZE 4 BYTES),
+        z INTEGER (SIZE 4 BYTES),
+    }
+END
+\end{lstlisting}
+
+In some cases, the original shorter name is still needed. To preserve both of the names, the transform includes both names by enclosing the names of declarations in square brackets(i.e. [] and separated by a caret (i.e. \textsuperscript{$\wedge$}). An example is given in listing \ref{Code:lexical2}. Note that only the declarations of the names are changed, references to the name such as the reference to
+\texttt{B} and \texttt{C} in the type decision \texttt{PDU} and the reference to \texttt{X} in declaration of the field \texttt{g} are not changed at this point in time.
+
+\begin{lstlisting}[language=SCL2,style=mystyle,frame=none,
+caption=Rename Declarations,label=Code:lexical2, xleftmargin=3.5ex, extendedchars=true]
+A DEFINITIONS ::= BEGIN
+    EXPORTS PDU;
+    IMPORTS [M_N ^ M] FROM N.
+    [PDU_A ^ PDU] ::= (B | C )
+    
+    [B_A ^ B] ::= SEQUENCE {
+        [f_B_A ^ f] INTEGER (SIZE 4 BYTES),
+        [g_B_A ^ g] X (SIZE 4 BYTES),
+    }
+    <transfer>
+       Back{ f == 2 }
+    </transfer>
+    
+    [C_A ^ C] ::= SEQUENCE {
+        [h_C_A ^ h] INTEGER (SIZE 4 BYTES),
+        [f_C_A ^ f] INTEGER (SIZE 4 BYTES),
+    }
+    <transfer>
+       Back{ h == 2 }
+    </transfer>
+    
+    [X_A ^ X] ::= SEQUENCE {
+        [y_X_A ^ y] INTEGER (SIZE 4 BYTES),
+        [z_X_A ^ z] INTEGER (SIZE 4 BYTES),
+    }
+END
+\end{lstlisting}
+
+Since modules are processed independently, the processor does not know what types are exported from a given Module. SCL only allows top level types to be exported, so a name is generated for each import based on the type and module name in the imports statement. A later phase of the process will check that the imported names are exported from the module in question.
+
+Since a name in SCL may include an underscore, the process first replaces all underscores in user defined names with dollar signs before the unique naming is started. Thus a type with the name \texttt{X\_Y} in a module \texttt{Z} will become \texttt{X\$Y\_Z}.
+
+\subsection{Rename References}
+\label{sec:RenameReferences}
+After all of the declarations have been given unique names, any references to the names are also uniquely named. There are four types of references:
+
+\setlist[description]{font=\normalfont\itshape}
+
+\begin{description}
+    \item[Exports.] A module may export one ore more grammar types. For example, the export of \texttt{PDU} in listing \ref{Code:lexical2}. 
+    
+    \item[Type Decision.] A type decision defines a type as a choice between several other types. For examp.e the defition of \texttt{PDU} in listing \ref{Code:lexical2} defines \texttt{PDU} as either a \texttt{B} or a \texttt{C}.
+    
+    \item[Field Types.] The type of a field in a structured type may be a primitive type such as INTEGER, or it may be a type defined elsewhere in the specification. For example, the field \texttt{g} of the type \texttt{B} is of type \texttt{X}.
+    
+    \item[Constraints.]. Fields and Types may be referred to in transfer or constraints blocks that are appended to the definition of a type. For example, the reference to the fields \texttt{f} and \texttt{n} in listing \ref{Code:lexical2}. Some of the references in constraints are to elements other than types such as the reference to the source or destination port, to a global variable, or to the length of the PDU.
+\end{description}
+
+Unlike declarations, the references are renamed by replacing them the unique identifier, as shown in listing \ref{Code:lexical3}. In the listing the reference to \texttt{PDU} in the Exports list has been renamed and the references to \texttt{B} and \texttt{C} in the definition of \texttt{A}. The reference to \texttt{X} in the definition of \texttt{B} has been renamed as well as the refrences to \texttt{f} and \texttt{h} in the transfer blocks.
+
+\begin{lstlisting}[language=SCL2,style=mystyle,frame=none,
+caption=Rename References,label=Code:lexical3, xleftmargin=3.5ex, extendedchars=true]
+A DEFINITIONS ::= BEGIN
+    EXPORTS PDU_A;
+    IMPORTS [M_N ^ M] FROM N.
+    [PDU_A ^ PDU] ::= (B_A | C_A )
+    
+    [B_A ^ B] ::= SEQUENCE {
+        [f_B_A ^ f] INTEGER (SIZE 4 BYTES),
+        [g_B_A ^ g] X_A (SIZE 4 BYTES),
+    }
+    <transfer>
+       Back{ f_B_A == 2 }
+    </transfer>
+    
+    [C_A ^ C] ::= SEQUENCE {
+        [h_C_A ^ h] INTEGER (SIZE 4 BYTES),
+        [f_C_A ^ f] INTEGER (SIZE 4 BYTES),
+    }
+    <transfer>
+       Back{ h_C_A == 2 }
+    </transfer>
+    
+    [X_A ^ X] ::= SEQUENCE {
+        [y_X_A ^ y] INTEGER (SIZE 4 BYTES),
+        [z_X_A ^ z] INTEGER (SIZE 4 BYTES),
+    }
+END
+\end{lstlisting}
+
+The rename references phase produces error messages for any references to types that have not been declared.  It also generates a file that contains a list of the types that are exported.  By default the name of this file is the module name with the extension \texttt{.exports}. For example, \texttt{A.exports}. The \texttt{-Intermediate} flag is used to specify the destination directory for the file (defualt is \texttt{INTERMEDIATE}).
+
+\subsection{Check Imports}
+\label{sec:CheckImports}
+This is a simple phase that checks that the types that were imported by one module were defined in the other module. Recall from rename declarations that the imports lists were assumed to be true for the purposes of generating unique names for declarations. For example the name \texttt{M\_N} was generated for the import statement \texttt{IMPORT M FROM N}.
+
+This phase runs after all of modules have been run through the rename references phase. At that point, an exports file for each module will have been created. This phase iterates over the module names in the imports list, and confirms that the type imported from the module is listed in the exports file for that module. It generates an error for any types that are imported that are not exported. 
+
+\subsection{Callback Annotation}
+\label{sec:CallbackAnnotation}
+There are two types of callbacks. The first are the callbacks specifically identified by the user. In this case a callback is to be made each time the type is recognized. The second is the submessage callback optimization. If the user add the callback annotation to a structured type that ends with a field that is a set or sequence, then a separate callback can be made for each element of the set or sequence. In some cases, the set type is a single structured type as in the IGMP protocol. In other cases, the set type may be a type decision allowing the set to be a hetrogenous list. As shown previously in listings \ref{Code:callback1} and \ref{Code:callback2}, each type of callback has a different signature. 
+
+\begin{lstlisting}[language=SCL2,style=mystyle,frame=none,float,
+caption=Before Callback Annotation,label=Code:beforeCallback, xleftmargin=3.5ex]
+FULL ::= SEQUENCE {
+    Header  HEADER (SIZE DEFINED),
+    guidPrefix  GUIDPREFIX (SIZE DEFINED),
+    subMsg  SET OF SUBMESSAGE (SIZE CONSTRAINED)
+} (ENCODED BY CUSTOM)
+<transfer>
+    -- Other transfer constraints here
+    Callback
+</transfer>
+
+SUBMESSAGE ::= (DATAPSUB  | ACKNACK |  ...)
+    
+DATAPSUB := SEQUENCE {
+    -- DATAPSUB fields here
+}
+<transfer>
+    -- DATAPSUB specific transfer constraints
+</transfer>
+\end{lstlisting}
+
+Listing \ref{Code:beforeCallback} shows a snippit of the RTPS protocol definition. In the figure , SCL generates a callback to the application logic whenever a FULL sequence is parsed. The annotation of the name of the SCL type (FULL) is added to the callback to aid in code generation. In the figure, the FULL sequence ends with a set of submessages, which in turn is a type decision allowing for a heterogenous list of submessages a part of the FULL message. To generate the callback from the DATAPSUB sequence, it must know the parent type that will be passed to the submessage callback, which must be passed through the SUBMESSAGE type decision. To support the code generation, this phase adds markup to both the SUBMESSAGE type decision and all of the types derived from the SUBMESSAGE type decision as shown in figure \ref{afterCallback}. The fact that this is an original Callback annotation from the user is inidicated by the at (i.e. @) symbol.
+
+\begin{lstlisting}[language=SCL2,style=mystyle,frame=none,float,
+caption=After Callback Annotation,label=Code:afterCallback, xleftmargin=3.5ex]
+[FULL_RTPS ^ FULL] ::= SEQUENCE {
+    [Header_FULL_RTPS ^ Header] HEADER_RTPS (SIZE DEFINED),
+    [guidPrefix_FULL_RTPS ^ guidPrefix] GUIDPREFIX_RTPS (SIZE DEFINED),
+    [subMsg_FULL_RTPS ^ subMsg] SET OF SUBMESSAGE_RTPS (SIZE CONSTRAINED)
+} (ENCODED BY CUSTOM)
+< transfer >
+    -- Other constraints in internal form
+    Callback @ FULL_RTPS subMsg
+</ transfer >
+
+[SUBMESSAGE_RTPS ^ SUBMESSAGE] ::= (DATAPSUB_RTPS | ACKNACK_RTPS |  ...)
+< transfer >
+    Callback ^ FULL_RTPS subMsg
+</ transfer >
+        
+[DATAPSUB_RTPS ^ DATAPSUB] ::= SEQUENCE  {
+    -- DATAPSUB fields here
+}
+<transfer>
+    -- DATAPSUB specific transfer constraints
+    Callback FULL_RTPS subMsg
+</transfer>
+\end{lstlisting}
+
+In this case the annotation Callback Full
+
+If this type is a type decision, then the callback statement is propagated without the $\wedge$ to each of the types in the type decision. For example, the callback statement \texttt{Callback FULL\_RTPS subMsg} is added to each of the types referenced by the \texttt{SUBMESSAGE} field in RTPS. In both cases they markup is the same as in the original FULL sequence, except with an additional annotation that indicates the role. The caret (i.e.\textsuperscript{$\wedge$}) is used to indicate that it is a passthrough, and no annotation for the location of the submessage callback.  Note that this phase only annotates the source with information, the callbacks are dealt with during the generation of the code and header files or by the interpreter. Flags to the generation phases or interpreter control how the annotations are used.
+
+\begin{verbatim}
+- free once called?
+\end{verbatim}
+
+\subsection{Optimization}
+\label{sec:Opt}
+The previous version of the generator used separate phases for the LL1 and the LLk optimizer. While this made the LLK optimizer optional, it also complicated the final code generator. The previous optimizaer also required the LL1/LLK fields to have the same name, not just the same type. The generator read the values and passed them on to the optimized field parser. the cost of copying the values outweighed the cost of reading the values twice. The generator also had to generate both optimized and non-optimized versions of the parsing methods as a record might be called from both an optimized choice and a non-optimized choice. The optimized versions assumed that the values were already read and that the current position had been updated.
+
+The new approach identifies constant values with constant sizes at  constant offsets in records independent of the name of the field. This includes and fields in any field records. This is used to look ahead into the input and check for the values at the offsets. However, when looking ahead, the current position is not changed, allowing the same parsing function to be used to read the fields into the internal data structures.
+
+The LL optimization is done in four phases. In the first phase, fields of records are annotated as constant or variable. In the second, usable back constraints are converted to annotation on the records they govern. In the third phase, the back constraint annotations are copied to the type decisions that use of the types. The final the annotations of a type decision are analyzed and if LL optimization is possible, a decision annotation is added. 
+
+\subsubsection{Back Constraints}
+
+While in general, back constraints can be any boolean expression, back constraints must have a specific format to be used in LL optimization. 
+
+% TODO fix formatting of field_reference = constant_expression
+The first condition on the format is that has the form \texttt{field\_reference = constant\_expression}. For example, in the IGMP protocol, the type field in a \texttt{QUERY} record has a value of 17 (in decimal), expressed as  \texttt{Back\{type == 17\}}.
+
+The second condition for use in LL optimization is that only one variable is referenced. If more that one value for the field is possible, then the constraints are expressed using a disjunction. For example, the RTPS protocol is identified by the first 4 bytes of a message. The value can be \texttt{'RTPS'} or \texttt{'RTPX'}, this is expressed as the constraint \texttt{Back \{ Header.protoName == 'RTPS' || Header.protoName == 'RTPX' \} }. As also shown in this example, fields of fields (to an arbitrary depth) is also supported in back constraints and the LL optimization of back constraints.
+
+If more than one field must be constrained, they are written as two back constraints as all backward constraints on a given type definition are implicitly conjoined.
+\begin{verbatim}
+TODO
+- assumes the back constraint is at the point of decision. (should be covered in language specification)
+\end{verbatim}
+
+\subsubsection{Field and Record Annotation}
+
+The first phase of LL optimization locates and annotates fields that have a constant size and offset within the record. Since the types of some fields are records in turn, this phase also identifies records that are a constant size. An example is given in figure \ref{Code:beforeSize}. In the exmaple both the \texttt{HEADER} and \texttt{GUIDPREFIX} records have constant sizes ). The field \texttt{Header} is at offset 0 and a size of 8, and the field \texttt{guildPrefix} is at an offset of 8 and has a size of 12. The last field, \texttt{subMsg} has a variable size, but a constant offset of 12.
+
+\begin{lstlisting}[language=SCL2,style=mystyle,frame=none,float,
+caption=Before Size Annotations,label=Code:beforeSize, xleftmargin=3.5ex]
+
+[FULL_RTPS ^ FULL] ::= SEQUENCE {
+    [Header_FULL_RTPS ^ Header] HEADER_RTPS (SIZE DEFINED),
+    [guidPrefix_FULL_RTPS ^ guidPrefix] GUIDPREFIX_RTPS (SIZE DEFINED),
+    [subMsg_FULL_RTPS ^ subMsg] SET OF SUBMESSAGE_RTPS (SIZE CONSTRAINED)
+} (ENCODED BY CUSTOM)
+
+[HEADER_RTPS ^ HEADER] ::= SEQUENCE {
+    [protoName_HEADER_RTPS ^ protoName] OCTET STRING (SIZE 4 BYTES),
+    [version_HEADER_RTPS ^ version] INTEGER (SIZE 2 BYTES),
+    [vendorId_HEADER_RTPS ^ vendorId] INTEGER (SIZE 2 BYTES)
+} (ENCODED BY CUSTOM)
+
+[GUIDPREFIX_RTPS ^ GUIDPREFIX] ::= SEQUENCE {
+    [hostID_GUIDPREFIX_RTPS ^ hostID] INTEGER (SIZE 4 BYTES),
+    [appID_GUIDPREFIX_RTPS ^ appID] INTEGER (SIZE 4 BYTES),
+    [counter_GUIDPREFIX_RTPS ^ counter] INTEGER (SIZE 4 BYTES)
+} (ENCODED 
+    
+\end{lstlisting}
+
+The rules that implement the size annotation use a common TXL paradigm where they run until a fixed point is reached (no further changes are made to the code). In each iteration, the rules:
+\begin{enumerate}
+\item visit each record type declaration and visit each of the fields in turn.
+\begin {enumerate}
+
+\item If the field is of constant size, then the field is annotated with the size and current offset from the beginning of the enclosing struct. The annotation is of the form \texttt{@ CONST  Offset Size}, where Offset and Size are the offset and size of the field in bytes. In the example in figure \ref{Code:beforeSize}, the first iteration of the rules will annotate the six fields in the \texttt{HEADER} and \texttt{GUIDPREFIX} as constant. For exmaple, the field \texttt{counter} will be annotated with texttt{@CONST 8 4} as it is a constant 4 bytes long, and is 8 bytes from the beginning of a \texttt{GUIDPREFIX}. At this point in time, even though the size of the fields texttt{Header} and \texttt{guildPrefix} in the \texttt{FULL} are constant sizes, they cannot yet be annotated.
+
+\item If the field is not of constant size, then the field is marked as variable with the \texttt{@ VAR} annotation. All remaining fields are marked as variable, even if they are of constant size since the offset is not known. An example of the is the field \texttt{subMsg} in the user type \texttt{FULL}.
+
+\item If the type of a field is a type decision, it is annotated  as a variable size field.
+
+\item On each pass, the rules process as many fields whose size is known. If a field is a record, and the size is not yet computed, then that field and the remaining fields are left to the next pass. For example the field \texttt{Header} of the type \texttt{FULL} cannot be annotated until the size of the type \texttt{HEADER} is known.
+
+\item If some of the fields are annotated from a previous pass, they are skipped over and the current offset is recovered from the last annotated constant field.
+
+\end {enumerate}
+
+\item Once all of the fields of a given type are annotated, the type itself is annotated either as a const (with and offset of 0) or as variable. After the first pass of the example, the type \texttt{HEADER} is annotated with a size of 8, and the type \texttt{GUIDPREFIX} is annotated with the size of 12.
+\end{enumerate}
+
+So after the first pass of the rules, these types are annotated as:
+
+\begin{lstlisting}[language=SCL2,style=mystyle,frame=none,float,
+caption=Before Size Annotations,label=Code:firstSizePass, xleftmargin=3.5ex, xrightmargin=0ex]
+FULL_RTPS ^ FULL] ::= SEQUENCE {
+  [Header_FULL_RTPS ^ Header] HEADER_RTPS (SIZE DEFINED),
+  [guidPrefix_FULL_RTPS ^ guidPrefix] GUIDPREFIX_RTPS (SIZE DEFINED),
+  [subMsg_FULL_RTPS ^ subMsg] SET OF SUBMESSAGE_RTPS (SIZE CONSTRAINED)
+} (ENCODED BY CUSTOM)
+
+[HEADER_RTPS ^ HEADER] @CONST 0 8 ::= SEQUENCE {
+  [protoName_HEADER_RTPS ^ protoName] @CONST 0 4 OCTET STRING (SIZE 4 BYTES),
+  [version_HEADER_RTPS ^ version] @CONST 0 2 INTEGER (SIZE 2 BYTES),
+  [vendorId_HEADER_RTPS ^ vendorId] @CONST 0 2INTEGER (SIZE 2 BYTES)
+} (ENCODED BY CUSTOM)
+
+[GUIDPREFIX_RTPS ^ GUIDPREFIX] @CONST 0 12 ::= SEQUENCE {
+  [hostID_GUIDPREFIX_RTPS ^ hostID] @CONST 0 4 INTEGER (SIZE 4 BYTES),
+  [appID_GUIDPREFIX_RTPS ^ appID]  @CONST 0 4  INTEGER (SIZE 4 BYTES),
+  [counter_GUIDPREFIX_RTPS ^ counter]  @CONST 0 4 INTEGER (SIZE 4 BYTES)
+} (ENCODED 
+\end{lstlisting}
+
+On the second iteration, it can now annotate the size and offset of the fields in the type \texttt{FULL}.
+
+\begin{lstlisting}[language=SCL2,style=mystyle,frame=none,float,
+caption=Before Size Annotations,label=Code:firstSizePass, xleftmargin=3.5ex, xrightmargin=0ex]
+FULL_RTPS ^ FULL] @VAR ::= SEQUENCE {
+  [Header_FULL_RTPS ^ Header] @CONST 0 8 HEADER_RTPS (SIZE DEFINED),
+  [guidPrefix_FULL_RTPS ^ guidPrefix] @CONST 8 12 GUIDPREFIX_RTPS (SIZE DEFINED),
+  [subMsg_FULL_RTPS ^ subMsg] @VAR SET OF SUBMESSAGE_RTPS (SIZE CONSTRAINED)
+} (ENCODED BY CUSTOM)
+
+[HEADER_RTPS ^ HEADER] @CONST 0 8 ::= SEQUENCE {
+  [protoName_HEADER_RTPS ^ protoName] @CONST 0 4 OCTET STRING (SIZE 4 BYTES),
+  [version_HEADER_RTPS ^ version] @CONST 4 2 INTEGER (SIZE 2 BYTES),
+  [vendorId_HEADER_RTPS ^ vendorId] @CONST 6 2 INTEGER (SIZE 2 BYTES)
+} (ENCODED BY CUSTOM)
+
+[GUIDPREFIX_RTPS ^ GUIDPREFIX] @CONST 0 12 ::= SEQUENCE {
+  [hostID_GUIDPREFIX_RTPS ^ hostID] @CONST 0 4 INTEGER (SIZE 4 BYTES),
+  [appID_GUIDPREFIX_RTPS ^ appID]  @CONST 4 4  INTEGER (SIZE 4 BYTES),
+  [counter_GUIDPREFIX_RTPS ^ counter]  @CONST 8 4 INTEGER (SIZE 4 BYTES)
+} (ENCODED 
+\end{lstlisting}
+
+\emph{Suggested improvements} Identify constant sizes at variable offsets after the first var field.  This will make code generation easier if it can
+identify constant size fields from the annotation.
+
+\subsubsection{Encoding Usable Back Constraints}
+A field that is used in a back constraint can be used for LL prediction must be at a constant offset within the field. The annotation \texttt{LL Offset Size list\_of\_values} is used to annotate a user type with LL optimizations. For example, the back constraint from lines 11 to 17 of listing \ref{Code:sizeOffsetAnnotation} refers to the subfield \texttt{protoName} of the field \texttt{Header}, which is at offset 0 (i.e. offset 0 of a field at offset 0) of the record and has a size of 4 bytes. It has two possible values expressed as 4 byte character literals. The literals are converted to their numeric equivalents (1381257304 and 1381257299). The resulting annotation  \texttt{@ LL 0 4 1381257304,1381257299} indicates that the first four bytes of this type must have one of these two values. More than one annotation may be added. For example, the type \texttt{DATASUB} in Listing \ref{Code:optional} has two back constraints on the field \texttt{kind} (offset 0) and the subfield \texttt{kind} of the field \texttt{writerEnt} (offset 3 in 12 for a final offset of 15). This results in two annotations: \texttt{@ LL 0 1 21} and \texttt{@ LL 15 1 3,2}.
+
+\begin{verbatim}
+improvements: 
+ - must identify which back constraints are used in LL optimization,
+    and which must be evaluated at parse time. (not currently used in
+    any protocol yet)
+ - also a field may be variable size as a record, but the field may be the
+    first variable field (constant offset) and a subfield  may be at a constant 
+    offset from the beginning. This case is also optimizable, but not yet
+    implemented.
+\end{verbatim}
+
+\subsubsection{Annotate Type Decisions}
+Once each user defined type has been annotated with LL optimization annotations, those annotations are copied to the use of those types in type decisions. Listing \ref{Code:typeDecisionLL} shows the \texttt{SUBMESSAGE} type decision in RTPS. It shows a choice between 9 different types. Technically in the RTPS protocol, four of the types are the same submessage type: \texttt{DATA} (LL value 21 at offset 0), three of them are distinguished from the submessages used to carry user data by the indication that a predefined writer is used to create the data.  User defined writers have a value of 2 or 3 at offset 15 in the submessage (\texttt{DATASUB\_RTPS}), while predefined writers have the value 194 at offset 15 in the submessage. The value at offset 12 identifies which predefined writer is used. As a last step, the annotations are sorted by offset.
+
+\begin{lstlisting}[language=SCL2,style=mystyle,frame=none,float,
+caption=Type Decision Annotation,label=Code:typeDecisionLL, xleftmargin=3.5ex]
+ [SUBMESSAGE_RTPS ^ SUBMESSAGE] @ VAR ::= (
+     DATAPSUB_RTPS @ LL 0 1 21 @ LL 12 3 256 @ LL 15 1 194
+   | DATASUB_RTPS @ LL 0 1 21 @ LL 15 1 3, 2
+   | ACKNACK_RTPS @  LL 0 1 6
+   | HEARTBEAT_RTPS @ LL 0 1 7
+   | INFO$DST_RTPS @ LL 0 1 14 
+   | INFO$TS_RTPS @ LL 0 1 9
+   | DATAWSUB_RTPS @ LL 0 1 21 @ LL 12 3 3 @ LL 15 1 194
+   | DATARSUB_RTPS @ LL 0 1 21 @ LL 12 3 4 @ LL 15 1 194
+   | GAP_RTPS @ LL 0 1 8
+  )
+\end{lstlisting}
+
+\subsubsection{Compute LL Decisions}
+
+The type decision is turned into a simple repeat in the TXL internal representation (no choice bars) that are in the same order as in the type decision. In the example in listing \ref{Code:typeDecisionLL}, all choices have a value at offset 0, size 1. Listing \ref{Code:Offset0} shows the choices partitioned by the values at offset zero. Some values have more than choice so they end up in a repeat associated with the value. The order of the repeat is the same order as in the original type decision. The annotation for the clustered offset  (offset 0) is also removed.
+
+\begin{lstlisting}[language=SCL2,style=mystyle,frame=none,float,
+caption=Offset Zero Partition,label=Code:Offset0, xleftmargin=3.5ex]
+{0 1
+    6 @ ACKNACK_RTPS
+    7 @ HEARTBEAT_RTPS
+    8 @ GAP_RTPS
+    9 @ INFO$TS_RTPS
+    14 @ INFO$DST_RTPS
+    21 @
+       DATAPSUB_RTPS @ LL 12 3 256 @ LL 15 1 194 
+       DATASUB_RTPS @ LL 15 1 3, 2 
+       DATAWSUB_RTPS @ LL 12 3 3 @ LL 15 1 194
+       DATARSUB_RTPS @ LL 12 3 4 @ LL 15 1 194
+}
+\end{lstlisting}
+
+In the example, not all of the fields have an offset 12, so offset 12 cannot be used at this point in time as a lookahead decision. The internal annotation a second repeat (indicated by !), for unused lookahead annotations. Listing \ref{Code:Offset12Moved} shows the unused annotations moved to the second repeat.
+
+\begin{lstlisting}[language=SCL2,style=mystyle,frame=none,float,
+caption=Offset 12 Moved,label=Code:Offset12Moved, xleftmargin=3.5ex]
+{0 1
+    6 @ ACKNACK_RTPS
+    7 @ HEARTBEAT_RTPS
+    8 @ GAP_RTPS
+    9 @ INFO$TS_RTPS
+    14 @ INFO$DST_RTPS
+    21 @
+       DATAPSUB_RTPS@ LL 15 1 194 ! @ LL 12 3 256
+       DATASUB_RTPS @ LL 15 1 3, 2 
+       DATAWSUB_RTPS@ LL 15 1 194 ! @ LL 12 3 3
+       DATARSUB_RTPS@ LL 15 1 194 ! @ LL 12 3 4
+}
+\end{lstlisting}
+In the first annotation repeat, all items have the same offset and size at 15 and 1, so we can partition again.
+When we build the new partition (as shown in Listing \ref{Code:Offset15}, we move the denied list back to the beginning of the main list because the partition may resolve the ambiguity.
+Again multiple options (value 194) are in the same order as the type decision). If an choice has more than one possible value for a given offset, it is repeated. For example, choice \texttt{DATASUB} has two values(2 and 3) at offset 15 size 1.
+
+\begin{lstlisting}[language=SCL2,style=mystyle,frame=none,float,
+caption=Offset 15 Partition,label=Code:Offset15, xleftmargin=3.5ex]
+{0 1
+    6 @ ACKNACK_RTPS
+    7 @ HEARTBEAT_RTPS
+    8 @ GAP_RTPS
+    9 @ INFO$TS_RTPS
+    14 @ INFO$DST_RTPS
+    21 @{15 1
+       194 @
+	DATAPSUB_RTPS @ LL 12 3 256
+	DATAWSUB_RTPS @ LL 12 3 3
+	DATARSUB_RTPS @ LL 12 3 4
+       3 @ DATASUB_RTPS
+       2 @ DATASUB_RTPS
+}
+\end{lstlisting}
+
+Separating the \texttt{DATASUB} choice from the rest based on the value 194 at offset 15 gave a list that can be partitioned at offset 12 with size 3.
+This can  be used to make the final lookahead block shown in listing \ref{Code:Offset12}.
+
+\begin{lstlisting}[language=SCL2,style=mystyle,frame=none,float,
+caption=Offset 12 Parittioned,label=Code:Offset12, xleftmargin=3.5ex]
+  {0 1
+    6 @ ACKNACK_RTPS
+    7 @ HEARTBEAT_RTPS
+    8 @ GAP_RTPS
+    9 @ INFO$TS_RTPS
+    14 @ INFO$DST_RTPS
+    21 @  {15 1
+      2 @ DATASUB_RTPS
+      3 @ DATASUB_RTPS
+      194: {12 3
+        3 @  DATAWSUB_RTPS
+        4 @  DATARSUB_RTPS
+        256 @DATAPSUB_RTPS
+      }
+    }
+  }
+\end{lstlisting}
+
+Any unresolved lookaheads are left in the block for possible use in backtracking. While it is not efficient to check a value close to the front of the current state of the parse as it the parse will backtrack as soon as the subfield is called, a value farther into the parse may provide a limit. Also the existence of forward constraints that must be managed may make checking a constraint before a given call useful.
+
+If more than one option remains in a list, then the code generator must use backtracking to resolve it. One example may be if in one of the options we end up with a list that contains no annotations.
+
+\subsubsection{Final Notes on LL}
+Currently the LL optimization is localized within a given module. For example, the UDP grammar  contains a single type decision that calls each of the exported types from the imported UDP protocols (NTP, DNS, RTPS, etc). The back constraints on the exported types could be propagated to the using grammar to optimize that choice as well. But this is not implemented yet.
+
+\section{Python Interpreter}
+The original version of SCL provided a java interpreter  that was presented by Marquis et al [ref]. In that version, SCL was translated into an XML specification that was used to drive the interpreter. It did not support modular descriptions, and a single XML file was used to read and write binary messages as part of an early grammar based fuzzer [refs].
+
+\begin{verbatim}
+TODO: 
+ - format of XML
+ - generation of XML
+ - structure of python interpreter.
+ \end{verbatim}
+
+\section{C Code Generator}
+
+\subsection{Data Structures}
+\label{sec:dataStructures}
+The parser generates C data types to hold the decoded packets. We start with the elementary types that are used to describe primitive items.
+
+A previous version of SCL implemented bitfields, but they are not currently implemented. Integers are currently recognized with sizes up to 8 bytes, and the size is rounded up to the nearest integral C size, one of uint8\_t, uint16\_t, uint32\_t, or uint64\_t. For example, an INTEGER field that is declared to be 5 bytes long will be implemented as a uint64\_t. The 5 bytes will be read from the message and stored in the lower 5 bytes of the integer.
+
+Currently the only implemented sizes of REAL ASN types are 
+- what do the generated data strucutes look like
+
+- Integer types  uint8\_t, uint16\_t, uint32\_t, uint64\_t, max 64 bits, sizes rounded up. (TODO How should the transformation be open ended?)
+
+- Real types  float, double
+
+- Octet String  8 bytes or less get turned into integers, more than 8 bytes become strings
+- VAriable length become strings
+
+- optionals are pointers. (maybe optional integers should just be integers with a flag?
+
+- type decisions become union structures
+
+- sets or and sequences of become arrays
+
+- sequences become structures
+
+\subsection{Data Structure Future Work}
+
+\section {Packet Parser Approach}
+\label{sec:ParseApproach}
+
+- PDU structure and fields, what do they mean. - need to validate against generated code...
+
+\noindent
+\begin{minipage}{\linewidth}
+\begin{lstlisting}[language=C,style=CStyle,frame=none,
+caption=PDU Data Structure,label=Code:pdustruct, xleftmargin=3.5ex]
+typedef struct _pdu {
+    unsigned char * data;
+    unsigned long len;
+    unsigned long watermark;
+    unsigned long curPos;
+    unsigned long curBitPos;
+    unsigned long remaining; // used when parsing flags??
+    struct HeaderInfo * header;
+} PDU;
+\end{lstlisting}
+\end{minipage}
+
+\noindent
+\begin{minipage}{\linewidth}
+\begin{lstlisting}[language=C,style=CStyle,frame=none,
+caption=HeaderInfo Data Structure,label=Code:headerstruct, xleftmargin=3.5ex]
+struct HeaderInfo {
+        uint32_t srcIP;
+        uint32_t dstIP;
+        uint16_t srcPort;
+        uint16_t dstPort;
+        long time;
+        unsigned long pktCount;
+        long refCount;
+        void * mainpduPtr;
+        int parserIndex;
+};
+\end{lstlisting}
+\end{minipage}
+
+-- general appraoch of parser, llk optimization.
+
+
+After annotation, both the headers and the code are generated from the specification. Since some structures are used as fields  in others, C imposes an order on the declaration of the structures. Since SCL does not impose an order on the declaration of the types, we first generate the structures and then sort them based on the partial order of their use.
+
+\subsubsection{Generate Headers}
+\label{sec:GenHeader}
+
+\subsubsection{Sort Headers}
+\label{sec:SortHeaders}
+- so compiler doesn't complain
+
+
+\subsubsection{Gen Source}
+\label{sec:GenSource}
+
+\begin{verbatim}
+- most complex transform 5-6K of code
+
+- outline of code
+
+- redefinitions
+
+a rule definition is redefined to include a c declaration
+ - this allows each rule to be replaced by a function
+ 
+- deconstruct P into Module and body
+    - assumes only one module in a file
+
+- checks command line for three arguments:
+    - nocallback
+    - nosubmessage (new I just added, not implemented yet)
+    - debug - creates an variable for indenting debug messages
+
+- exports several global variable used to hold various
+parts of the generated code
+    - function prototypes
+    - auxiliary functions
+     -parsed paraemters (Llk)
+     - parsed pair (llk)
+     - pos list (llk)
+     - lengthTocheck - involves generataion of length checks
+     
+constructs the name of the free function freePDU_PROTOCOL
+
+Extracts a copy of the type rules (SEQ)
+Extrats a copy of the type deicsions
+and a copy of all the rules, which is exported
+
+The main function calls 5 functions
+    - checkGlobalConstraints
+    - createFreeFunctionTYpeRule - creates the free funciton if the pUD is a SEQ
+    - createFreeFuncitonTypeDec - creates free funciton if the PDU is a TD
+    - createParseFunciton
+    - assembleProgram (assembles all the parts into the final program
+
+checkGlobalConstraints
+    -creates a C definition for any global constraint variables and
+      confirms that all global constraints use a created var
+      
+createFreeFunctionTypeRule generates a free rule assuming that the
+main type is named PDU and is a SEQ
+
+create FreeFynctionTypeDecision generates a free rule assuming that the
+main type is named PDU and is a TD
+
+- both should be changed to use the exports list.
+- both generate into a global variable.
+- both should be changed to generate in place and use a copy of the rules in a construct
+
+createParseFunction runs in place and replaces tpe rules with parse funcitons for each rule
+
+assembleProgram assembles all of code in the global variables with the parse functions
+that are sill in the main scope.
+
+createParseFunctions
+    - scope is all of the rules
+    - matches each rule in turn and replaces with code.
+    - may add some code to auxiliary
+    - parameters
+        - ModName (the name of the moduel as an ID)
+        - TP rules - all of the SEQ rules
+        - TypeDec - all of the type decisions
+    Rules are (all have the same three parameters passed through):
+        - doSimpleTypeRule
+        - doChoiceOPtimizedTypeRule
+        - doSimpleTypeDecision
+        - doLLKTypeDecision
+        - doAnnotatedTypeDecision
+        - doAnnoatedLLKTypeDecision
+        - doOptimizedTypeDecision
+        - doOptimizedTypeDecisionDotOp
+        - doGloballyOptimizedTypeDecision
+
+doSimpleTypeRule
+    - only called by createParseFunctions
+    - parameters
+        - ModName (the name of the moduel as an ID)
+        - TP rules - all of the SEQ rules
+        - TypeDec - all of the type decisions
+    - matches a TypeRule 
+    - constructs the function name which is parse and the short name of the
+        type. (e.g.parseQuery)
+    - if the type name is PDU, change to Module name (.e.g parseRTPS)
+    - craete a function prototype
+        - first paramter is pointer to long name, using long name in all lower case)
+        - second paraemter is the PDU
+        - third paramter is progrname
+        - 4th parmater is endianness.
+        - default ALLOCNAME is mainpud
+        - variable lower is the long name of the type in lowercase
+        - create an empty function body
+        - set length to check to zero
+            - as fields are converted to code, add all of the required constant length
+                fields sizes together so can check the number of bytes once
+        - Call function initializePointer to initialize all of the pointers 
+          - in the strcuture to NULL (must know whih fields are pointer/not pointer)
+         
+        - parse bySize
+        
+        - check for a global constraint and add code for a global constraint if there
+            - calls addGlobalCheck
+        
+        
+initializePointer
+    - calle by doSimpleTypeRule
+    
+    
+Section on neeeded improvements
+- llk optimization should not be a list of all the fields whose names have to be maches. Should instead be based on offsets and values. 
+- more than one value for LL1/LLK optimization
+
+\end{verbatim}
+
+\section{Conclusion}
+foobar
+
+\bibliographystyle{plain}
+\bibliography{refs}
+
+\end{document}
+
+
+%\begin{figure}[H]
+%\begin{center}
+  % Requires \usepackage{graphicx}
+%\includegraphics[width=0.6\linewidth]{PhysLogger_Labeling.png}\\
+%\caption{PhysLogger Device.}\label{device}
+% \end{center}
+%\end{figure}
+
+
