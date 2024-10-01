@@ -24,11 +24,11 @@ R4.scl5 - Structure with two fields that are strucutres.
 
 R5.scl5 - Choice between two structures of different size, back constraints mututally exclusive
 
-R6.scl5 - Structure with optional field (forward EXiSTS and PDUREMAINING)
+R6.scl5 - Structure with optional field (forward EXISTS and PDUREMAINING)
 
-R7.scl5 - Structure with optional field (forward EXiSTS and Bit flag)
+R7.scl5 - Structure with optional field (forward EXISTS and Bit flag)
 
-R8.scl5  - Choice between three structures, two with same bck constraint but different sizes
+R8.scl5  - Choice between three structures, two with same back constraint but different sizes
 
 R9.scl5 - length of octet string given by value of other field
 
