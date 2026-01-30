@@ -185,6 +185,7 @@ define user_defined_type
      [structured_type]
    | [set_or_seq_of_type]
    | [type_reference]
+   | [enumerated_type]
 end define
 
 % if we put set_type back in it goes here...
@@ -212,6 +213,12 @@ end define
 % doesn't allow SET of builtin
 define set_of_type
     'SET 'OF [type_reference]
+end define
+
+define enumerated_type
+   'ENUMERATED [opt size_constraint] '{			[IN]
+       [list enum_ident] [opt ',]			[NL][EX]
+    }
 end define
 
 %%%%%%
@@ -294,6 +301,18 @@ end define
 
 define optional
   OPTIONAL
+end define
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+%% enum vals
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+define enum_ident
+    [decl] [opt enum_val]
+end define
+
+define enum_val
+    '( [number] ')
 end define
 
 %%%%%%%%%%%%%%%%%%%%%%%%

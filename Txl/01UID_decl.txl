@@ -214,7 +214,16 @@ rule addAndCheckTypeRuleNames
     by
 	TypeName [checkIfDuplicate '" in type decision definition"]
 	         [addIfNotDuplicate]
-	'::= Type SclA 
+	'::= Type [addAndCheckEnumIdent] SclA 
+end rule
+
+rule addAndCheckEnumIdent
+    replace $ [enum_ident]
+        EnumId [id] Val [opt enum_val]
+    by
+	EnumId [checkIfDuplicate '" in enum identifier definition"]
+	         [addIfNotDuplicate]
+	Val
 end rule
 
 rule addAndCheckTypeDecNames
@@ -296,7 +305,9 @@ rule renameTypeRule ModName [id]
     construct UniqueTypeName [id]
 	TypeName [+ '_ ] [+ ModName]	% Unique name using protocol
     by
-	'[ UniqueTypeName '^ TypeName '] '::= Type [renameStructuredType UniqueTypeName] SclA
+	'[ UniqueTypeName '^ TypeName '] '::= Type [renameStructuredType UniqueTypeName]
+	      [renameEnumType UniqueTypeName] % if nested names not wanted, change to ModName
+	SclA
 end rule
 
 
@@ -331,6 +342,24 @@ rule renameElements TypeName [id]
     by
 	'[ UniqueElementName '^ ElementName '] Type 
 end rule
+
+%% Enuerated typesw
+function renameEnumType TypeName [id]
+    replace * [enumerated_type]
+	E [enumerated_type]
+    by
+	E [renameEnumIds TypeName]
+end function
+
+rule renameEnumIds TypeName [id]
+    replace [enum_ident]
+        EnumIdName [id] Val [opt enum_val]
+    construct UniqueEnumName [id]
+	EnumIdName [+ '_ ] [+ TypeName]
+    by
+        '[ UniqueEnumName '^ EnumIdName '] Val
+end rule
+
 
 % Type decisions don't have nested elements, just a diffeernt
 % non terminal to match

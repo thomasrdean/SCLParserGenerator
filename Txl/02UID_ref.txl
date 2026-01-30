@@ -149,7 +149,18 @@ rule addTypeRuleDef
         OrigName UniqueName
         UserNames
     by
-	 '[ UniqueName '^ OrigName '] '::= T  S 
+	 '[ UniqueName '^ OrigName '] '::= T [addEnumIdents]  S 
+end rule
+
+rule addEnumIdents
+    replace $ [enum_ident]
+	 '[ UniqueName [id] '^ OrigName [id] '] Val [opt enum_val]
+    import UserNames [repeat name_pair]
+    export UserNames
+        OrigName UniqueName
+        UserNames
+    by 
+	 '[ UniqueName '^ OrigName '] Val 
 end rule
 
 % add unique and orioginal  from LSH of a type definition
@@ -390,6 +401,10 @@ end rule
 % must be SEQUENCE OF <type>, and 3 refers to the 3rd memnber in the sequence.
 % TODO: go through alias types. e.g. a.b.c.d, where the type of c is M and
 %     M ::= N, and N ::= SEQUENCE {..  d  ...} is valid.
+%
+% TODO. Eleent in the transfer block may be an enumerated value.
+% Do it first so it is a unique name (i.e. [ f_B_C ^ f] so it doesn't trip
+% errors from the previous
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 function renameElementRefFromUserDefs
