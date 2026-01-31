@@ -1363,7 +1363,7 @@ function addAllBytesUsead RuleName [id] ParmName [id] SclAdd [opt scl_additions]
     construct FailStmts [repeat declaration_or_statement]
        _ [addFreeFieldStmt ParmName each FreeFieldNames]
          [restoreState]
-	 [addDebugFail FunctionName]
+	 [addDebugFail ParseFunctionName]
          [addFalseStmt]
 
     construct CheckAllUsed [repeat declaration_or_statement]
