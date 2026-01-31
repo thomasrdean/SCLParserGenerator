@@ -112,11 +112,27 @@ define type_decision_definition
 end define
 
 define type_decision
-	'( [type_reference] [repeat alternative_decision]')
+	'( [type_dec_option] [repeat alternative_decision]')
 end define         
 
 define alternative_decision
-	'| [type_reference] 
+	'| [type_dec_option] 
+end define
+
+define type_dec_option
+    [type_reference] [opt type_choice_option]
+end define
+
+define type_choice_option
+  '( [type_choice_val]  ')
+end define
+
+define type_choice_val
+  [enum_ref] | [number]
+end define
+
+define enum_ref
+    [referenced_element]
 end define
 
 define type_decl
@@ -185,6 +201,7 @@ define user_defined_type
      [structured_type]
    | [set_or_seq_of_type]
    | [type_reference]
+   | [enumerated_type]
 end define
 
 % if we put set_type back in it goes here...
@@ -212,6 +229,12 @@ end define
 % doesn't allow SET of builtin
 define set_of_type
     'SET 'OF [type_reference]
+end define
+
+define enumerated_type
+   'ENUMERATED [opt size_constraint] '{			[IN]
+       [list enum_ident] [opt ',]			[NL][EX]
+    }
 end define
 
 %%%%%%
@@ -294,6 +317,18 @@ end define
 
 define optional
   OPTIONAL
+end define
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+%% enum vals
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+define enum_ident
+    [decl] [opt enum_val]
+end define
+
+define enum_val
+    '( [number] ')
 end define
 
 %%%%%%%%%%%%%%%%%%%%%%%%
@@ -473,6 +508,7 @@ define construction_parameter
   | EXISTS '( [referenced_element] ') '== [relational_expression]
   | TERMINATE '( [referenced_element] ') '== [referenced_element]
   | END '( [referenced_element] ')
+  | CHOICE '( [referenced_element] ') == [relational_expression]
   | [immediate_endian_change]
 end define
 
