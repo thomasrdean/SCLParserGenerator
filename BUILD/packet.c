@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "globals.h"
 #include "packet.h"
@@ -62,6 +63,7 @@ PDU * readPDU(char * PDUFileName){
 
    bytesRead = 0;
    bytesToRead = thePDU->len;
+   thePDU->choices = NULL;
 
 
    // system may be unwilling to read the entire packet in a single
@@ -74,4 +76,43 @@ PDU * readPDU(char * PDUFileName){
 
    fclose(infile);
    return thePDU;
+}
+
+// Single merged stack for initial implementaiton.
+// If a lot of choices are used, may be better to have a hashtable
+// to separate the stacks.
+
+// pushes the current choice to the front of the list
+void pushChoice(PDU *context, char * ruleName, int choiceVal){
+   choiceNode * tmp = (choiceNode*)malloc(sizeof(choiceNode));
+   tmp->ruleName = ruleName;
+   tmp->choiceVal = choiceVal;
+   tmp->next = context->choices;
+   context->choices = tmp;
+}
+
+int removeAndReturnChoice(choiceNode **head, char * ruleName);
+// finds the first node with the first node with the ruleName
+// and returns the choice Value;
+int getChoice(PDU *context, char * ruleName, int choiceVal){
+   return removeAndReturnChoice(&(context->choices), ruleName);
+}
+
+int removeAndReturnChoice(choiceNode **head, char * ruleName){
+   if (*head == NULL){
+      // major error here,.
+      // SCL runtime should never look up a rulename that
+      // hasn't been in a Forward Choice constraint.
+      fprintf(stderr, "Choice Lookup failed for rule %s\n", ruleName);
+      exit(1);
+   }
+   // if match, free and return choiceVal
+   if (!strcmp((*head) -> ruleName, ruleName)){
+      int retVal = (*head) -> choiceVal;
+      choiceNode * tmp = *head;
+      *head = (*head) -> next;
+      free(tmp);
+      return retVal;
+   }
+   return removeAndReturnChoice(&((*head)->next), ruleName);
 }
