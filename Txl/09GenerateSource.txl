@@ -2518,13 +2518,13 @@ rule generateTypeDecFunctions ModName [id] Ex [opt export_block] TPRules [repeat
 	Rest [repeat rule_definition]
 
     construct Refs [repeat type_reference]
-    	_ [^ TD]
+    	_ [^ TD]. % TODO need to be type choice isntead....
 	  %[message "hi"]
 
     construct Parse [repeat rule_definition]
         _ [generateTDParseFunction UniqueID Ex TPRules TypeDec Refs OptScl]
-	  [createSubmessageVersionOfTDParseFunction OptScl]
-	  [createSubmessageVersionOfTDPrototype OptScl]
+	      [createSubmessageVersionOfTDParseFunction OptScl]
+	      [createSubmessageVersionOfTDPrototype OptScl]
 
     construct Free [repeat rule_definition]
        _ [generateTDFree UniqueID Ex TPRules TypeDec Refs]
@@ -2620,7 +2620,7 @@ function generateTDParseFunction RuleName [id] Ex [opt export_block] TPRules [re
       
      construct Body [repeat declaration_or_statement]
         _ [generateLLKOptimizedBody UnionName SclAdd]
-	  [generateUnoptimizedBody UnionName SclAdd Refs]
+	      [generateUnoptimizedBody UnionName SclAdd Refs]
 
      construct ParseFunction [parse_function]
         Type  [addStaticIfNotExternal RuleName Ex]
@@ -2645,7 +2645,7 @@ function generateUnoptimizedBody UnionName [id] SclAdd [opt scl_additions] Refs 
         Empty [repeat declaration_or_statement]
      by
 	Empty
-	 [addCallToRef UnionName each Refs]
+	     [addCallToRef UnionName each Refs]
          [addFalseStmt]
 end function
 
