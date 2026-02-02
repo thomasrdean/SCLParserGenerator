@@ -178,8 +178,11 @@ fi
     # todo - add parameter for module file direcotry (incase INTERMEDIATE has been overridden)
     txl -q ${TxlDir} ${TmpDir}/"$filename"_decl.scl5 02UID_ref.txl  - -Intermediate "${TmpDir}" > ${TmpDir}/"$filename"_ref.scl5
 
+
+    txl -q ${TxlDir} ${TmpDir}/"$filename"_ref.scl5 04.1ValidateChoiceAndEnum.txl  > ${TmpDir}/"$filename"_enumCheck.scl5
+
     # Callback annotation
-    txl -q ${TxlDir} ${TmpDir}/"$filename"_ref.scl5 04Callback_Annotation.txl  > ${TmpDir}/"$filename"_callback.scl5
+    txl -q ${TxlDir} ${TmpDir}/"$filename"_enumCheck.scl5 04Callback_Annotation.txl  > ${TmpDir}/"$filename"_callback.scl5
 
     # LL1 annotation
     txl -q ${TxlDir} ${TmpDir}/"$filename"_callback.scl5 05LLOptimization.txl  > ${TmpDir}/"$filename"_opt1.scl5
