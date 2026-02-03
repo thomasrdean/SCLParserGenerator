@@ -1184,7 +1184,7 @@ function addUnprotectedUserDefinedVarOptional aVarElement [struct_element] ParmN
     construct GetStmts [repeat declaration_or_statement]
         if (ConditionForIf){
 	   GetSatementAllocate
-	   [addSemanticChoiceValue UniqueID SclAdd TypeName]
+	   [addSemanticChoiceValue UniqueID SclAdd TypeName ParmName]
 	   [. GetStmtIf]
 	} else {
 	    ParmName -> FieldName = NullId ;
@@ -1196,9 +1196,11 @@ function addUnprotectedUserDefinedVarOptional aVarElement [struct_element] ParmN
 	Stmts [. GetStmts] [. CheckFields]
 end function
 
-function addSemanticChoiceValue UniqueID [id] SclAdd [opt scl_additions] TypeName [id]
+function addSemanticChoiceValue UniqueID [id] SclAdd [opt scl_additions] TypeName [id] ParmName [id]
+
     deconstruct * [forward_block] SclAdd
        'Forward '{ 'CHOICE( '[ UniqueID '^ _ [id] '] ') '== Exp [additive_expression]'}
+
     construct Msg [stringlit]
     	_ [+ "Found sematic Choice for field: "]
 	  [+ UniqueID]
