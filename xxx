@@ -1,0 +1,37 @@
+FWD1 DEFINITIONS ::= BEGIN
+    [PDU_FWD1 ^ PDU] ::= SEQUENCE {
+        [T1_PDU_FWD1 ^ T1] INTEGER (SIZE 1 BYTES),
+        [T2_PDU_FWD1 ^ T2] INTEGER (SIZE 1 BYTES),
+        [T3_PDU_FWD1 ^ T3] INTEGER (SIZE 1 BYTES),
+        [T4_PDU_FWD1 ^ T4] INTEGER (SIZE 1 BYTES),
+        [D1_PDU_FWD1 ^ D1] INTEGER (SIZE DEFINED) OPTIONAL,
+        [D2_PDU_FWD1 ^ D2] INTEGER (SIZE DEFINED) OPTIONAL,
+        [D3_PDU_FWD1 ^ D3] INTEGER (SIZE DEFINED) OPTIONAL,
+        [D4_PDU_FWD1 ^ D4] INTEGER (SIZE DEFINED) OPTIONAL,
+    } (ENCODED BY CUSTOM)
+    < transfer >
+        Forward {EXISTS ([D1_PDU_FWD1 ^ D1]) == ([T1_PDU_FWD1 ^ T1] != 0)}
+        Forward {CHOICE ([D1_PDU_FWD1 ^ D1]) == [T1_PDU_FWD1 ^ T1]}
+        Forward {EXISTS ([D2_PDU_FWD1 ^ D2]) == ([T2_PDU_FWD1 ^ T2] != 0)}
+        Forward {CHOICE ([D2_PDU_FWD1 ^ D2]) == [T2_PDU_FWD1 ^ T2]}
+        Forward {EXISTS ([D3_PDU_FWD1 ^ D3]) == ([T3_PDU_FWD1 ^ T3] != 0)}
+        Forward {CHOICE ([D3_PDU_FWD1 ^ D3]) == [T3_PDU_FWD1 ^ T3]}
+        Forward {EXISTS ([D4_PDU_FWD1 ^ D4]) == ([T4_PDU_FWD1 ^ T4] != 0)}
+        Forward {CHOICE ([D4_PDU_FWD1 ^ D4]) == [T4_PDU_FWD1 ^ T4]}
+    </ transfer >
+
+    [DATA_FWD1 ^ DATA_FWD1] ::= (INT4_FWD1 (1) | FLT4_FWD1 (2) | DBL8_FWD1 (3))
+
+    [INT4_FWD1 ^ INT4] ::= SEQUENCE {
+        [val_INT4_FWD1 ^ val] INTEGER (SIZE 4 BYTES)
+    } (ENCODED BY CUSTOM)
+
+    [FLT4_FWD1 ^ FLT4] ::= SEQUENCE {
+        [val_FLT4_FWD1 ^ val] REAL (SIZE 4 BYTES)
+    } (ENCODED BY CUSTOM)
+
+    [DBL8_FWD1 ^ DBL8] ::= SEQUENCE {
+        [val_DBL8_FWD1 ^ val] REAL (SIZE 8 BYTES)
+    } (ENCODED BY CUSTOM)
+
+END

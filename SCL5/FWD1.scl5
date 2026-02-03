@@ -2,24 +2,24 @@
 FWD1 DEFINITIONS ::= BEGIN
 
 PDU ::= SEQUENCE {
-  T1 INTEGER (SIZE 1 BYTES),
-  T2 INTEGER (SIZE 1 BYTES),
-  T3 INTEGER (SIZE 1 BYTES),
-  T4 INTEGER (SIZE 1 BYTES),
-  D1 INTEGER (SIZE DEFINED) OPTIONAL,
-  D2 INTEGER (SIZE DEFINED) OPTIONAL,
-  D3 INTEGER (SIZE DEFINED) OPTIONAL,
-  D4 INTEGER (SIZE DEFINED) OPTIONAL,
+  t1 INTEGER (SIZE 1 BYTES),
+  t2 INTEGER (SIZE 1 BYTES),
+  t3 INTEGER (SIZE 1 BYTES),
+  t4 INTEGER (SIZE 1 BYTES),
+  d1 DATA (SIZE DEFINED) OPTIONAL,
+  d2 DATA (SIZE DEFINED) OPTIONAL,
+  d3 DATA (SIZE DEFINED) OPTIONAL,
+  d4 DATA (SIZE DEFINED) OPTIONAL,
  } (ENCODED BY CUSTOM)
 <transfer>
- Forward { EXISTS(D1) == (T1 != 0) }
- Forward { CHOICE(D1) == T1 }
- Forward { EXISTS(D2) == (T2 != 0) }
- Forward { CHOICE(D2) == T2 }
- Forward { EXISTS(D3) == (T3 != 0) }
- Forward { CHOICE(D3) == T3 }
- Forward { EXISTS(D4) == (T4 != 0) }
- Forward { CHOICE(D4) == T4 }
+ Forward { EXISTS(d1) == (t1 != 0) }
+ Forward { CHOICE(d1) == t1 }
+ Forward { EXISTS(d2) == (t2 != 0) }
+ Forward { CHOICE(d2) == t2 }
+ Forward { EXISTS(d3) == (t3 != 0) }
+ Forward { CHOICE(d3) == t3 }
+ Forward { EXISTS(d4) == (t4 != 0) }
+ Forward { CHOICE(d4) == t4 }
 </transfer>
 
 DATA ::= (INT4(1) | FLT4(2) | DBL8(3))

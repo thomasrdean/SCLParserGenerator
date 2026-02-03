@@ -508,7 +508,7 @@ define construction_parameter
   | EXISTS '( [referenced_element] ') '== [relational_expression]
   | TERMINATE '( [referenced_element] ') '== [referenced_element]
   | END '( [referenced_element] ')
-  | CHOICE '( [referenced_element] ') == [relational_expression]
+  | CHOICE '( [referenced_element] ') == [additive_expression]
   | [immediate_endian_change]
 end define
 

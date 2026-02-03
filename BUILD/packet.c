@@ -94,7 +94,7 @@ void pushChoice(PDU *context, char * ruleName, int choiceVal){
 int removeAndReturnChoice(choiceNode **head, char * ruleName);
 // finds the first node with the first node with the ruleName
 // and returns the choice Value;
-int getChoice(PDU *context, char * ruleName, int choiceVal){
+int getChoice(PDU *context, char * ruleName){
    return removeAndReturnChoice(&(context->choices), ruleName);
 }
 
