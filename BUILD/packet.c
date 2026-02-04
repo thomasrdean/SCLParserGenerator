@@ -24,7 +24,7 @@
 #include "packet.h"
 
 
-PDU * readPDU(char * PDUFileName){
+PDU * readPDU(char * PDUFileName, char * progname){
    FILE * infile;
    struct stat stbuff;
    int res;

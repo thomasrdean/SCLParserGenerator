@@ -1226,7 +1226,7 @@ function addSemanticChoiceValue UniqueID [id] SclAdd [opt scl_additions] TypeNam
     	_ [+ TypeName]
  
     construct SetChoiceOption [repeat declaration_or_statement]
-    	'pushChoice(PDU, TypeNameStr, CChoiceExpr);
+    	'pushChoice(thePDU, TypeNameStr, CChoiceExpr);
 
 	  
     replace [repeat declaration_or_statement]
@@ -2765,7 +2765,7 @@ function generateSemChoiceBody UnionName [id] RuleName[id] SclAdd [opt scl_addit
 
      construct DefaultErrorCase [repeat declaration_or_statement]
          'default:
-             fprint(stderr, "Unmatched Value %d in Type Decision for %s\n", semanticChoiceValue , RuleNameStr);
+             fprintf(stderr, "Unmatched Value %d in Type Decision for %s\n", semanticChoiceValue , RuleNameStr);
              exit(1);
 
      construct SwitchBody [repeat declaration_or_statement]

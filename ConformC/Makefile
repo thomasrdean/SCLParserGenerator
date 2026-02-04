@@ -7,16 +7,16 @@ GENDIR=../ConformSrc/
 
 # for packet.h
 BLDIR=../BUILD/
-RLIBS=objs/putilities.o objs/sutilities.o
+RLIBS=objs/putilities.o objs/sutilities.o objs/packet.o
 
-GENINC=$(BLDIR)/globals.h $(BLDIR)/packet.h $(BLDIR)/putilities.h
+GENINC=$(BLDIR)/globals.h $(BLDIR)/packet.h $(BLDIR)/putilities.h 
 SERINC=$(BLDIR)/globals.h $(BLDIR)/packet.h $(BLDIR)/sutilities.h
 
 IFLAGS=-I$(GENDIR) -I$(BLDIR)
 
 diff: allExecs
 
-allExecs: bin/R1 bin/R2 bin/R3 bin/R4 bin/R5 bin/R6 bin/R7 bin/R8 bin/R9 bin/R10 bin/R11 bin/R12
+allExecs: bin/R1 bin/R2 bin/R3 bin/R4 bin/R5 bin/R6 bin/R7 bin/R8 bin/R9 bin/R10 bin/R11 bin/R12 bin/R13
 
 clean:
 	rm objs/* bin/*
@@ -26,6 +26,8 @@ objs/putilities.o: $(BLDIR)/putilities.c
 	cc -g -c -o objs/putilities.o -I$(BLDIR) $(BLDIR)/putilities.c
 objs/sutilities.o: $(BLDIR)/sutilities.c
 	cc -g -c -o objs/sutilities.o -I$(BLDIR) $(BLDIR)/sutilities.c
+objs/packet.o: $(BLDIR)/packet.c
+	cc -g -c -o objs/packet.o -I$(BLDIR) $(BLDIR)/packet.c
 
 # Conformance GTests
 bin/R1: objs/R1_Generated.o objs/R1_Serialize.o objs/R1_Print.o objs/R1.o $(RLIBS)
@@ -159,3 +161,15 @@ objs/R12_Print.o: $(GENDIR)/R12_Print.h $(GENDIR)/R12_Print.c $(SERINC)
 	cc -g -c -o objs/R12_Print.o $(IFLAGS) $(GENDIR)/R12_Print.c
 objs/R12.o: R12.c $(GENDIR)/R12_Definitions.h endian.h $(GENDIR)/R12_Serialize.h $(GENDIR)/R12_Print.h
 	cc -g -c -o objs/R12.o $(IFLAGS) R12.c
+
+bin/R13: objs/R13_Generated.o objs/R13_Serialize.o objs/R13.o objs/R13_Print.o $(RLIBS)
+	cc -g -o bin/R13 objs/R13.o objs/R13_Generated.o objs/R13_Serialize.o objs/R13_Print.o $(RLIBS)
+objs/R13_Generated.o: $(GENDIR)/R13_Definitions.h $(GENDIR)/R13_Generated.c $(GENINC)
+	cc -g -c -o objs/R13_Generated.o $(IFLAGS) $(GENDIR)/R13_Generated.c
+objs/R13_Serialize.o: $(GENDIR)/R13_Serialize.h $(GENDIR)/R13_Serialize.c $(SERINC)
+	cc -g -c -o objs/R13_Serialize.o $(IFLAGS) $(GENDIR)/R13_Serialize.c
+objs/R13_Print.o: $(GENDIR)/R13_Print.h $(GENDIR)/R13_Print.c $(SERINC)
+	cc -g -c -o objs/R13_Print.o $(IFLAGS) $(GENDIR)/R13_Print.c
+
+objs/R13.o: R13.c $(GENDIR)/R13_Definitions.h endian.h $(GENDIR)/R13_Serialize.h $(GENDIR)/R13_Print.h
+	cc -g -c -o objs/R13.o $(IFLAGS) R13.c

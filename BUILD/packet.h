@@ -34,6 +34,9 @@ typedef struct _pdu {
 } PDU;
 
 /* read a PDU from a file */
-PDU * readPDU(char *);
+PDU * readPDU(char *, char * prognamne);
+
+void pushChoice(PDU *context, char * ruleName, int choiceVal);
+int getChoice(PDU *context, char * ruleName);
 
 #endif /* _PACKET_H_ */
