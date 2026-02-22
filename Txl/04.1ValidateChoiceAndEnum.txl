@@ -4,7 +4,7 @@ function main
     replace [program]
         P [program]
     by
-        P %[determinEnumValues]
+        P [determinEnumValues]
            [verifyChoiceTypeDecisions]
 end function
 
@@ -17,6 +17,44 @@ end function
 %% etc.
 %%
 %% 
+rule determinEnumValues
+    replace $ [type_rule_definition]
+	'[ UniqueID [id] '^ TypeName [id] '] '::= 
+	    'ENUMERATED Sz [opt size_constraint] '{
+	       EnumVals [list enum_ident] _ [opt ',]
+	    }
+	SclAdd [opt scl_additions]
+    by
+	'[ UniqueID '^ TypeName '] '::= 
+	    'ENUMERATED Sz '{
+	       EnumVals [numberEnumRecursivelyEmpty '1]
+	                [numberEnumRecursivelyGiven '1]
+	    }
+	SclAdd
+
+end rule
+
+function numberEnumRecursivelyEmpty curVal [number]
+   replace [list enum_ident]
+       EIdent [decl]  , L [list enum_ident]
+   construct NewVal [number]
+       curVal [+ 1]
+   by
+       EIdent '( curVal ') ,
+       L [numberEnumRecursivelyEmpty NewVal]
+         [numberEnumRecursivelyGiven NewVal]
+end function
+
+function numberEnumRecursivelyGiven curVal [number]
+   replace [list enum_ident]
+       EIdent [decl]  '( UserCurVal [number] ') , L [list enum_ident]
+   construct NewVal [number]
+       UserCurVal [+ 1]
+   by
+       EIdent '( UserCurVal ') ,
+       L [numberEnumRecursivelyEmpty NewVal]
+         [numberEnumRecursivelyGiven NewVal]
+end function
 
 %rule determinEnumValues
 %   replace 
@@ -32,6 +70,7 @@ end function
 %%   value has all alteratives labeled.
 %% 2. Check that each use of the type decision is guarded
 %%    by a forward choice constraint (TODO)
+%% 3. check that all values are disjoing (TODO)
 
 function verifyChoiceTypeDecisions
     replace [program]

@@ -95,6 +95,7 @@ rule renameRefsEachModule
          [renameTypeRefFromUserDefs]
 	 [renameTypeRefInTransferAndConstraints]
 	 [renameElementRefFromUserDefs]
+	 [renameEnumsInTypeDecisions]
 end rule
 
 function checkErrs
@@ -572,10 +573,52 @@ function checkForFailure TransferTypeName [id] T [type] RestInputReferenceChain 
 end function
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Step 6. Check all references in Constraints are fixed
+% Step 6. Enum vlaues can be used as semantic choices in type decisions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+function  renameEnumsInTypeDecisions
+    replace [module_definition]
+       M [module_definition]
+    construct Idents [repeat enum_ident]
+    	_ [^ M]
+    construct EnumDecls [repeat decl]
+    	_ [^ Idents]
+    by
+       M [renameSemanticTypeDecisionTags EnumDecls]
+end function 
+
+rule renameSemanticTypeDecisionTags EnumDecls [repeat decl]
+    replace $ [type_choice_val]
+    	OriginalName [id]
+    construct CheckForMissing [id]
+    	OriginalName [checkMissingEnumTD EnumDecls]
+   
+    deconstruct * [decl] EnumDecls
+    	'[ UniqueName[id] '^ OriginalName ']
+    by
+    	'[ UniqueName '^ OriginalName ']
+end rule
+
+function checkMissingEnumTD EnumDecls [repeat decl]
+    match [id]
+    	OriginalName [id]
+    deconstruct not * [decl] EnumDecls
+    	'[ _ [id] '^ OriginalName ']
+    construct Msg [stringlit]
+    	_ [+ "Type decision semantic tag "]
+	  [+ OriginalName]
+	  [+ "is not Defined"]
+	  [print]
+    import ErrorCount [number]
+    export ErrorCount
+    	ErrorCount [+ 1]
+end function
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Step 7. Check all references in Constraints are fixed
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Step 7. Create an exports table that can be used to verify imports in
+% Step 8. Create an exports table that can be used to verify imports in
 %	  other modules. Also need a verify imports that reads the tables
 % TODO
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

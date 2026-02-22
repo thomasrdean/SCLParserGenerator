@@ -455,6 +455,7 @@ rule calculateSizes
     construct NewP [program]
     	P [updatePosAndSizesStructs P]
 	  [updateSizeTypeDecision P]
+	  [addEnumAnnot P]
 
     deconstruct not NewP
     	P
@@ -466,6 +467,7 @@ end rule
 rule checkTypeSizes
     replace $ [type_decl]
        '[ Long [id] '^ Short [id] ']  Annots [repeat annotation_item]
+
     deconstruct not * [pos_size_annotation] Annots
     	_ [pos_size_annotation]
 
@@ -477,6 +479,21 @@ rule checkTypeSizes
 
     by
        '[ Long '^ Short ']  Annots
+end rule
+
+
+% put in annotation for enum to simplify error reporting
+rule addEnumAnnot P [program]
+    replace $ [type_rule_definition]
+	'[ UniqueID [id] '^ TypeName [id] '] Annots [repeat annotation_item] '::= E [enumerated_type]
+	SCLAdd [opt scl_additions]
+   deconstruct not * [enum_annotation] Annots
+       _ [enum_annotation]
+
+   by
+	'[ UniqueID  '^ TypeName  '] @ ENUM Annots '::= E
+	SCLAdd 
+
 end rule
 
 rule updatePosAndSizesStructs P [program]

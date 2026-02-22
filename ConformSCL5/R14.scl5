@@ -1,5 +1,6 @@
 
-FWD1 DEFINITIONS ::= BEGIN
+
+R14 DEFINITIONS ::= BEGIN
 
 EXPORTS PDU;
 
@@ -24,7 +25,7 @@ PDU ::= SEQUENCE {
  Forward { CHOICE(d4) == t4 }
 </transfer>
 
-DATA ::= (INT4(1) | FLT4(2) | DBL8(3))
+DATA ::= (INT4(IntTag) | FLT4(FloatTag) | DBL8(DblTag))
 
 INT4 ::= SEQUENCE {
     val INTEGER (SIZE 4 BYTES)
@@ -37,5 +38,10 @@ FLT4 ::= SEQUENCE {
 DBL8 ::= SEQUENCE {
     val REAL (SIZE 8 BYTES)
 } (ENCODED BY CUSTOM)
+
+TAG ::= ENUMERATED {
+   None (0), IntTag, FloatTag, DblTag
+}
+
 
 END

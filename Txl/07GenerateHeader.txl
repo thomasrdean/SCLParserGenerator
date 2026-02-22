@@ -227,6 +227,7 @@ rule processEachModule
 	 Rules
 	     [translateTypeDecisions Exports TagTypeName]
 	     [translateTypeStructs Exports]
+	     [translateEnumTypes]
 	     [addEnums TagTypeName]
 	     [addModules Imports]
       'END
@@ -484,9 +485,10 @@ function addUnionElementIfDot aType [type_reference]
     by
     	Elements [. Member]
 end function
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-% Step 1 - Structure Type 
-% Structure Type Decisions become c structures with one or more C fields for
+% Step 2 - Structure Type 
+% Structure Types become c structures with one or more C fields for
 % each element
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 
@@ -915,6 +917,42 @@ function OneIfSAVEPOSInType Type [type]
     	'1
 end function
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+% Step 3 - Enumerated Types
+% Enumerated Type Decisions become c enjmerated types with explicit values
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+
+rule translateEnumTypes 
+    replace [repeat rule_definition]
+	'[ UniqueName [id] '^ ShortName [id] '] Annot [annotation] '::= 
+
+	    'ENUMERATED SZ [opt size_constraint] '{
+	       Enums [list enum_ident] _ [opt ',]
+	    }
+	SclAdd [opt scl_additions]
+	Rest [repeat rule_definition]
+
+    construct Tags [list enumerator]
+    	_ [addEnumIdentAsEnumerator each Enums]
+
+    construct EnumDef [enum_translation]
+        'typedef 'enum '{ Tags  '} UniqueName ';
+    by
+       EnumDef
+       Rest
+end rule
+
+function addEnumIdentAsEnumerator anEnum [enum_ident]
+    deconstruct anEnum
+    	'[ UniqueId [id] '^ ShortName [id] '] '( Val [number] ')
+    replace [list enumerator]
+    	Enums [list enumerator]
+    construct aCEnum [enumerator]
+	UniqueId = Val
+    by
+    	Enums [, aCEnum]
+end function
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % General Utiliy Rules
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1060,6 +1098,7 @@ function addFreeFunction UniqueName [id] Exports [opt export_block]
         FreeFn
 end function
 
+% note this add enums is for the tag enums used for type decisions.
 function addEnums TagTypeName [id]
 
     replace [repeat rule_definition]

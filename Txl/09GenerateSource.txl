@@ -2794,6 +2794,7 @@ function addSwitchCaseSemChoice UnionName [id] aSemChoice [type_dec_option]
         Cases [repeat declaration_or_statement]
      by
      	Cases [addSimpleCaseSemChoice UnionName  aSemChoice]
+     	      [addEnumCaseSemChoice UnionName  aSemChoice]
 end function
 
 function addSimpleCaseSemChoice UnionName [id] aSemChoice[type_dec_option]
@@ -2806,6 +2807,24 @@ function addSimpleCaseSemChoice UnionName [id] aSemChoice[type_dec_option]
 	      [addBreak]
      construct SwitchCase [repeat declaration_or_statement]
         'case Value:
+	   IfStmts
+
+     replace [repeat declaration_or_statement]
+        Cases [repeat declaration_or_statement]
+     by
+     	Cases [. SwitchCase]
+end function
+
+function addEnumCaseSemChoice UnionName [id] aSemChoice[type_dec_option]
+
+     deconstruct  aSemChoice
+         TR [type_reference ] '( '[ UniqueName [id] '^ ShortName [id] '] ')
+
+     construct IfStmts [repeat declaration_or_statement]
+     	_ [buildIfForCase UnionName TR]
+	      [addBreak]
+     construct SwitchCase [repeat declaration_or_statement]
+        'case UniqueName:
 	   IfStmts
 
      replace [repeat declaration_or_statement]

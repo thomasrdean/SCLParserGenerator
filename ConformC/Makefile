@@ -16,7 +16,7 @@ IFLAGS=-I$(GENDIR) -I$(BLDIR)
 
 diff: allExecs
 
-allExecs: bin/R1 bin/R2 bin/R3 bin/R4 bin/R5 bin/R6 bin/R7 bin/R8 bin/R9 bin/R10 bin/R11 bin/R12 bin/R13
+allExecs: bin/R1 bin/R2 bin/R3 bin/R4 bin/R5 bin/R6 bin/R7 bin/R8 bin/R9 bin/R10 bin/R11 bin/R12 bin/R13 bin/R14
 
 clean:
 	rm objs/* bin/*
@@ -170,6 +170,16 @@ objs/R13_Serialize.o: $(GENDIR)/R13_Serialize.h $(GENDIR)/R13_Serialize.c $(SERI
 	cc -g -c -o objs/R13_Serialize.o $(IFLAGS) $(GENDIR)/R13_Serialize.c
 objs/R13_Print.o: $(GENDIR)/R13_Print.h $(GENDIR)/R13_Print.c $(SERINC)
 	cc -g -c -o objs/R13_Print.o $(IFLAGS) $(GENDIR)/R13_Print.c
-
 objs/R13.o: R13.c $(GENDIR)/R13_Definitions.h endian.h $(GENDIR)/R13_Serialize.h $(GENDIR)/R13_Print.h
 	cc -g -c -o objs/R13.o $(IFLAGS) R13.c
+
+bin/R14: objs/R14_Generated.o objs/R14_Serialize.o objs/R14.o objs/R14_Print.o $(RLIBS)
+	cc -g -o bin/R14 objs/R14.o objs/R14_Generated.o objs/R14_Serialize.o objs/R14_Print.o $(RLIBS)
+objs/R14_Generated.o: $(GENDIR)/R14_Definitions.h $(GENDIR)/R14_Generated.c $(GENINC)
+	cc -g -c -o objs/R14_Generated.o $(IFLAGS) $(GENDIR)/R14_Generated.c
+objs/R14_Serialize.o: $(GENDIR)/R14_Serialize.h $(GENDIR)/R14_Serialize.c $(SERINC)
+	cc -g -c -o objs/R14_Serialize.o $(IFLAGS) $(GENDIR)/R14_Serialize.c
+objs/R14_Print.o: $(GENDIR)/R14_Print.h $(GENDIR)/R14_Print.c $(SERINC)
+	cc -g -c -o objs/R14_Print.o $(IFLAGS) $(GENDIR)/R14_Print.c
+objs/R14.o: R14.c $(GENDIR)/R14_Definitions.h endian.h $(GENDIR)/R14_Serialize.h $(GENDIR)/R14_Print.h
+	cc -g -c -o objs/R14.o $(IFLAGS) R14.c
