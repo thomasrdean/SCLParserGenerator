@@ -792,6 +792,7 @@ function addProtectedGet RuleName [id] ParmName [id] SclAdd [opt scl_additions] 
 	    % Todo expand backconstraints for non-integer fields
 	    [recordPosition aConstElement ParmName FunctionName]
 	    [addEndianCheck ParmName FunctionName SclAdd]
+	    [addProtectedEnum aConstElement ParmName FunctionName]
 	    [addProtectedInteger aConstElement ParmName FunctionName]
 	    [addProtectedOctetStringInt aConstElement ParmName FunctionName]
 	    [addProtectedOctetStringChar aConstElement ParmName FunctionName]
@@ -899,6 +900,44 @@ function removeEndianConstraint anEndianConstraint [immediate_endian_change]
      	anEndianConstraint Rest [repeat immediate_endian_change]
      by
     	Rest
+end function
+
+function addProtectedEnum aConstElement [struct_element] ParmName [id] FunctionName [id]
+    replace [repeat declaration_or_statement]
+	Stmts [repeat declaration_or_statement]
+    deconstruct aConstElement
+       '[ UniqueID [id] '^ ShortID [id] '] Annot [annotation] EnumType[id] '(SIZE Size [number] BYTES) TA [repeat type_attribute]
+
+	%uint32_t get32_e(PDU * thePDU, uint8_t endianness) 
+    construct Bits [number]
+    	Size [* 8]
+    construct GetName [id]
+    	_ [+ 'get]
+	  [+ Bits]
+	  [+ '_e]
+
+    import ReadFields [repeat id]
+    construct NewReadFields [repeat id]
+        UniqueID ReadFields
+    export ReadFields
+    	NewReadFields %[putp "NewFields are %"]
+
+    construct Endian [id]
+        _ [+ 'endianness]	% default is parameter to parse function
+	  [replaceBigEndianIfSpecified TA]
+	  [replaceLittleEndianIfSpecified TA]
+
+    construct GetStmt [declaration_or_statement]
+        ParmName '-> ShortID [tolower] = GetName(thePDU, Endian);
+
+    construct CheckFields [repeat declaration_or_statement]
+    	_ [checkBackConstraints ParmName NewReadFields FunctionName]
+
+    by
+	Stmts [. GetStmt] 
+	[addDebugLong Size ParmName ShortID]
+	[addDebugLongLong Size ParmName ShortID]
+	[. CheckFields]
 end function
 
 function addProtectedInteger aConstElement [struct_element] ParmName [id] FunctionName [id]
@@ -1108,6 +1147,7 @@ function addUnprotectedGet RuleName [id] ParmName [id] SclAdd [opt scl_additions
 	   [addUnprotectedOctetStringChar aVarElement ParmName FunctionName ]
 	   [addUnprotectedOctetStringConstrained aVarElement ParmName SclAdd FunctionName ]
 	   [addUnprotectedSetOfConstrained aVarElement ParmName SclAdd FunctionName]
+	   [addUnprotectedEnum aVarElement ParmName SclAdd FunctionName]
 	   [addUnprotectedInteger aVarElement ParmName SclAdd FunctionName]
 	   [addUnprotectedUserDefinedConst aVarElement ParmName SclAdd FunctionName]
 end function
@@ -1787,6 +1827,57 @@ rule fixArgsSubmessage ParmName [id]
     by
         ParmName, Rest
 end rule
+
+function addUnprotectedEnum aVarElement [struct_element] ParmName [id] SclAdd [opt scl_additions] FunctionName [id]
+    replace [repeat declaration_or_statement]
+	Stmts [repeat declaration_or_statement]
+    deconstruct aVarElement
+       '[ UniqueID [id] '^ ShortID [id] '] Annot [annotation] EnumType[id] '(SIZE Size [number] BYTES) TA [repeat type_attribute]
+
+	%uint32_t get32_e(PDU * thePDU, uint8_t endianness) 
+    construct Bits [number]
+    	Size [* 8]
+    construct GetName [id]
+    	_ [+ 'get]
+	  [+ Bits]
+	  [+ '_e]
+
+    import ReadFields [repeat id]
+    construct NewReadFields [repeat id]
+        UniqueID ReadFields
+    export ReadFields
+    	NewReadFields %[putp "NewFields are %"]
+
+    import FreeFieldNames [repeat free_pair]
+    construct FailStmts [repeat declaration_or_statement]
+       _ [addFreeFieldStmt ParmName each FreeFieldNames]
+         [restoreState]
+	 [addDebugFail FunctionName]
+         [addFalseStmt]
+
+    construct Endian [id]
+        _ [+ 'endianness]	% default is parameter to parse function
+	  [replaceBigEndianIfSpecified TA]
+	  [replaceLittleEndianIfSpecified TA]
+
+    construct GetStmts [repeat declaration_or_statement]
+        if (!lengthRemaining(thePDU, Size , name)){
+	    FailStmts
+	}
+        ParmName '-> ShortID [tolower] = GetName(thePDU, Endian);
+	thePDU -> remaining -= Size;
+
+    construct CheckFields [repeat declaration_or_statement]
+    	_ [checkBackConstraints ParmName NewReadFields FunctionName]
+
+    by
+	Stmts
+	    [. GetStmts]
+	    [addDebugLong Size ParmName ShortID]
+	    [addDebugLongLong Size ParmName ShortID]
+	    [. CheckFields]
+end function
+
 
 function addUnprotectedInteger aVarElement [struct_element] ParmName [id] SclAdd [opt scl_additions] FunctionName [id]
     replace [repeat declaration_or_statement]

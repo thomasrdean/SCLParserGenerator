@@ -674,6 +674,7 @@ function addProtectedWrite RuleName [id] ParmName [id] SclAdd [opt scl_additions
 	Stmts
 	    % Todo expand backconstraints for non-integer fields
 	    [addEndianCheck ParmName FunctionName SclAdd]
+	    [addProtectedEnum aConstElement ParmName FunctionName]
 	    [addProtectedInteger aConstElement ParmName FunctionName]
 	    [addProtectedOctetStringInt aConstElement ParmName FunctionName]
 	    [addProtectedOctetStringChar aConstElement ParmName FunctionName]
@@ -755,6 +756,39 @@ function removeEndianConstraint anEndianConstraint [immediate_endian_change]
         anEndianConstraint Rest [repeat immediate_endian_change]
      by
         Rest
+end function
+
+function addProtectedEnum aConstElement [struct_element] ParmName [id] FunctionName [id]
+    replace [repeat declaration_or_statement]
+	Stmts [repeat declaration_or_statement]
+    deconstruct aConstElement
+       '[ UniqueID [id] '^ ShortID [id] '] Annot [annotation] EnumType[id] '(SIZE Size [number] BYTES) TA [repeat type_attribute]
+
+	%uint32_t get32_e(PDU * thePDU, uint8_t endianness) 
+    construct Bits [number]
+    	Size [* 8]
+    construct WriteName [id]
+    	_ [+ 'writebufferInt]
+	  [+ Bits]
+
+    import SerializedFields [repeat id]
+    construct NewSerializedFields [repeat id]
+        UniqueID SerializedFields
+    export SerializedFields
+        NewSerializedFields %[putp "NewFields are %"]
+
+    construct Endian [id]
+        _ [+ 'endianness]	% default is parameter to parse function
+	  [replaceBigEndianIfSpecified TA]
+	  [replaceLittleEndianIfSpecified TA]
+
+    construct GetStmt [declaration_or_statement]
+        WriteName('buff, ParmName '-> ShortID [tolower], Endian);
+
+    by
+	Stmts [. GetStmt] 
+	%[addDebugLong Size ParmName ShortID]
+	%[addDebugLongLong Size ParmName ShortID]
 end function
 
 function addProtectedInteger aConstElement [struct_element] ParmName [id] FunctionName [id]
@@ -943,6 +977,7 @@ function addUnprotectedGet RuleName [id] ParmName [id] SclAdd [opt scl_additions
 	   [addProtectedOctetStringChar aVarElement ParmName FunctionName]
 	   [addUnprotectedOctetStringConstrained aVarElement ParmName SclAdd FunctionName ]
 	   [addUnprotectedSetOfConstrained aVarElement ParmName SclAdd FunctionName]
+	   [addUnprotectedEnum aVarElement ParmName SclAdd FunctionName]
 	   [addUnprotectedInteger aVarElement ParmName SclAdd FunctionName]
 	   [addUnprotectedUserDefinedConst aVarElement ParmName SclAdd FunctionName]
 end function
@@ -1071,6 +1106,49 @@ function addUnprotectedSetOfConstrained aVarElement [struct_element] ParmName [i
     by
 	Stmts  [. GetStmts]
 end function
+
+function addUnprotectedEnum aVarElement [struct_element] ParmName [id] SclAdd [opt scl_additions] FunctionName [id]
+    replace [repeat declaration_or_statement]
+	Stmts [repeat declaration_or_statement]
+    deconstruct aVarElement
+       '[ UniqueID [id] '^ ShortID [id] '] Annot [annotation] EnumType[id] '(SIZE Size [number] BYTES) TA [repeat type_attribute]
+
+    construct Bits [number]
+    	Size [* 8]
+
+    construct WriteName [id]
+    	_ [+ 'writebufferInt]
+	  [+ Bits]
+
+    construct FailStmts [repeat declaration_or_statement]
+       _ %[addDebugFail FunctionName]
+         [addReturnNull]
+
+    import SerializedFields [repeat id]
+    construct NewSerializedFields [repeat id]
+        UniqueID SerializedFields
+    export SerializedFields
+        NewSerializedFields %[putp "NewFields are %"]
+
+    construct Endian [id]
+        _ [+ 'endianness]	% default is parameter to parse function
+	  [replaceBigEndianIfSpecified TA]
+	  [replaceLittleEndianIfSpecified TA]
+ 
+    import NullId [id]
+
+    construct GetStmts [repeat declaration_or_statement]
+        if (('buff = SerializeBufferAllocate(buff, Size)) == NullId ){
+	    FailStmts
+	}
+        WriteName(buff,ParmName '-> ShortID [tolower], Endian);
+
+
+    by
+	Stmts
+	    [. GetStmts]
+end function
+
 
 function addUnprotectedInteger aVarElement [struct_element] ParmName [id] SclAdd [opt scl_additions] FunctionName [id]
     replace [repeat declaration_or_statement]
