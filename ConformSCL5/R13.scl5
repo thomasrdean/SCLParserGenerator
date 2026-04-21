@@ -1,0 +1,41 @@
+
+R13 DEFINITIONS ::= BEGIN
+
+EXPORTS PDU;
+
+PDU ::= SEQUENCE {
+  t1 INTEGER (SIZE 1 BYTES),
+  t2 INTEGER (SIZE 1 BYTES),
+  t3 INTEGER (SIZE 1 BYTES),
+  t4 INTEGER (SIZE 1 BYTES),
+  d1 DATA (SIZE DEFINED) OPTIONAL,
+  d2 DATA (SIZE DEFINED) OPTIONAL,
+  d3 DATA (SIZE DEFINED) OPTIONAL,
+  d4 DATA (SIZE DEFINED) OPTIONAL,
+ } (ENCODED BY CUSTOM)
+<transfer>
+ Forward { EXISTS(d1) == (t1 != 0) }
+ Forward { CHOICE(d1) == t1 }
+ Forward { EXISTS(d2) == (t2 != 0) }
+ Forward { CHOICE(d2) == t2 }
+ Forward { EXISTS(d3) == (t3 != 0) }
+ Forward { CHOICE(d3) == t3 }
+ Forward { EXISTS(d4) == (t4 != 0) }
+ Forward { CHOICE(d4) == t4 }
+</transfer>
+
+DATA ::= (INT4(1) | FLT4(2) | DBL8(3))
+
+INT4 ::= SEQUENCE {
+    val INTEGER (SIZE 4 BYTES)
+} (ENCODED BY CUSTOM)
+
+FLT4 ::= SEQUENCE {
+    val REAL (SIZE 4 BYTES)
+} (ENCODED BY CUSTOM)
+
+DBL8 ::= SEQUENCE {
+    val REAL (SIZE 8 BYTES)
+} (ENCODED BY CUSTOM)
+
+END

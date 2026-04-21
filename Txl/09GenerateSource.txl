@@ -792,6 +792,7 @@ function addProtectedGet RuleName [id] ParmName [id] SclAdd [opt scl_additions] 
 	    % Todo expand backconstraints for non-integer fields
 	    [recordPosition aConstElement ParmName FunctionName]
 	    [addEndianCheck ParmName FunctionName SclAdd]
+	    [addProtectedEnum aConstElement ParmName FunctionName]
 	    [addProtectedInteger aConstElement ParmName FunctionName]
 	    [addProtectedOctetStringInt aConstElement ParmName FunctionName]
 	    [addProtectedOctetStringChar aConstElement ParmName FunctionName]
@@ -899,6 +900,44 @@ function removeEndianConstraint anEndianConstraint [immediate_endian_change]
      	anEndianConstraint Rest [repeat immediate_endian_change]
      by
     	Rest
+end function
+
+function addProtectedEnum aConstElement [struct_element] ParmName [id] FunctionName [id]
+    replace [repeat declaration_or_statement]
+	Stmts [repeat declaration_or_statement]
+    deconstruct aConstElement
+       '[ UniqueID [id] '^ ShortID [id] '] Annot [annotation] EnumType[id] '(SIZE Size [number] BYTES) TA [repeat type_attribute]
+
+	%uint32_t get32_e(PDU * thePDU, uint8_t endianness) 
+    construct Bits [number]
+    	Size [* 8]
+    construct GetName [id]
+    	_ [+ 'get]
+	  [+ Bits]
+	  [+ '_e]
+
+    import ReadFields [repeat id]
+    construct NewReadFields [repeat id]
+        UniqueID ReadFields
+    export ReadFields
+    	NewReadFields %[putp "NewFields are %"]
+
+    construct Endian [id]
+        _ [+ 'endianness]	% default is parameter to parse function
+	  [replaceBigEndianIfSpecified TA]
+	  [replaceLittleEndianIfSpecified TA]
+
+    construct GetStmt [declaration_or_statement]
+        ParmName '-> ShortID [tolower] = GetName(thePDU, Endian);
+
+    construct CheckFields [repeat declaration_or_statement]
+    	_ [checkBackConstraints ParmName NewReadFields FunctionName]
+
+    by
+	Stmts [. GetStmt] 
+	[addDebugLong Size ParmName ShortID]
+	[addDebugLongLong Size ParmName ShortID]
+	[. CheckFields]
 end function
 
 function addProtectedInteger aConstElement [struct_element] ParmName [id] FunctionName [id]
@@ -1108,6 +1147,7 @@ function addUnprotectedGet RuleName [id] ParmName [id] SclAdd [opt scl_additions
 	   [addUnprotectedOctetStringChar aVarElement ParmName FunctionName ]
 	   [addUnprotectedOctetStringConstrained aVarElement ParmName SclAdd FunctionName ]
 	   [addUnprotectedSetOfConstrained aVarElement ParmName SclAdd FunctionName]
+	   [addUnprotectedEnum aVarElement ParmName SclAdd FunctionName]
 	   [addUnprotectedInteger aVarElement ParmName SclAdd FunctionName]
 	   [addUnprotectedUserDefinedConst aVarElement ParmName SclAdd FunctionName]
 end function
@@ -1167,9 +1207,10 @@ function addUnprotectedUserDefinedVarOptional aVarElement [struct_element] ParmN
     % have to emit error checking code
     % TODO add free statements
     % use restoreState rule
-    construct GetStmts [repeat declaration_or_statement]
-        if (ConditionForIf){
-            ParmName -> FieldName = (TypeName *) malloc(sizeof(TypeName));
+    construct GetSatementAllocate [repeat declaration_or_statement]
+       ParmName -> FieldName = (TypeName *) malloc(sizeof(TypeName));
+
+    construct GetStmtIf [repeat declaration_or_statement]
             if (!ParseName(ParmName '-> FieldName, thePDU, name, Endian)){
 	        % if the condition said it was there, but it wasn't,
 		% release the memory and return false.
@@ -1179,6 +1220,12 @@ function addUnprotectedUserDefinedVarOptional aVarElement [struct_element] ParmN
 		thePDU -> remaining = saveRemaining;
 		return false ;
 	    }
+
+    construct GetStmts [repeat declaration_or_statement]
+        if (ConditionForIf){
+	   GetSatementAllocate
+	   [addSemanticChoiceValue UniqueID SclAdd TypeName ParmName]
+	   [. GetStmtIf]
 	} else {
 	    ParmName -> FieldName = NullId ;
 	
@@ -1187,6 +1234,46 @@ function addUnprotectedUserDefinedVarOptional aVarElement [struct_element] ParmN
     	_ [checkBackConstraints ParmName NewReadFields FunctionName]
     by
 	Stmts [. GetStmts] [. CheckFields]
+end function
+
+function addSemanticChoiceValue UniqueID [id] SclAdd [opt scl_additions] TypeName [id] ParmName [id]
+
+    deconstruct * [forward_block] SclAdd
+       'Forward '{ 'CHOICE( '[ UniqueID '^ _ [id] '] ') '== Exp [additive_expression]'}
+
+    construct Msg [stringlit]
+    	_ [+ "Found sematic Choice for field: "]
+	  [+ UniqueID]
+	  [+ " with user defined type: "]
+	  [+ TypeName]
+	  [print]
+
+    % resolve SCL fields and special names in the expression
+    % todo - lengh of previous fields, position of previous fields
+    construct ResolvedExpr [additive_expression]
+        Exp [convertREMAINING]
+	    [convertSimpleFields ParmName]
+	    [convertPos ParmName]
+	    %[putp "Converted addExpr is %"]
+
+    construct CVersionOpt [opt assignment_cexpression]
+    	_ [reparse ResolvedExpr]
+
+    deconstruct CVersionOpt
+    	CChoiceExpr [assignment_cexpression]
+
+    construct TypeNameStr [stringlit]
+    	_ [+ TypeName]
+ 
+    construct SetChoiceOption [repeat declaration_or_statement]
+    	'pushChoice(thePDU, TypeNameStr, CChoiceExpr);
+
+	  
+    replace [repeat declaration_or_statement]
+	Stmts [repeat declaration_or_statement]
+    by
+	Stmts
+	[. SetChoiceOption]
 end function
 
 function addUnprotectedOctetStringInt aConstElement [struct_element] ParmName [id] FunctionName [id]
@@ -1363,7 +1450,7 @@ function addAllBytesUsead RuleName [id] ParmName [id] SclAdd [opt scl_additions]
     construct FailStmts [repeat declaration_or_statement]
        _ [addFreeFieldStmt ParmName each FreeFieldNames]
          [restoreState]
-	 [addDebugFail FunctionName]
+	     [addDebugFail ParseFunctionName]
          [addFalseStmt]
 
     construct CheckAllUsed [repeat declaration_or_statement]
@@ -1740,6 +1827,57 @@ rule fixArgsSubmessage ParmName [id]
     by
         ParmName, Rest
 end rule
+
+function addUnprotectedEnum aVarElement [struct_element] ParmName [id] SclAdd [opt scl_additions] FunctionName [id]
+    replace [repeat declaration_or_statement]
+	Stmts [repeat declaration_or_statement]
+    deconstruct aVarElement
+       '[ UniqueID [id] '^ ShortID [id] '] Annot [annotation] EnumType[id] '(SIZE Size [number] BYTES) TA [repeat type_attribute]
+
+	%uint32_t get32_e(PDU * thePDU, uint8_t endianness) 
+    construct Bits [number]
+    	Size [* 8]
+    construct GetName [id]
+    	_ [+ 'get]
+	  [+ Bits]
+	  [+ '_e]
+
+    import ReadFields [repeat id]
+    construct NewReadFields [repeat id]
+        UniqueID ReadFields
+    export ReadFields
+    	NewReadFields %[putp "NewFields are %"]
+
+    import FreeFieldNames [repeat free_pair]
+    construct FailStmts [repeat declaration_or_statement]
+       _ [addFreeFieldStmt ParmName each FreeFieldNames]
+         [restoreState]
+	 [addDebugFail FunctionName]
+         [addFalseStmt]
+
+    construct Endian [id]
+        _ [+ 'endianness]	% default is parameter to parse function
+	  [replaceBigEndianIfSpecified TA]
+	  [replaceLittleEndianIfSpecified TA]
+
+    construct GetStmts [repeat declaration_or_statement]
+        if (!lengthRemaining(thePDU, Size , name)){
+	    FailStmts
+	}
+        ParmName '-> ShortID [tolower] = GetName(thePDU, Endian);
+	thePDU -> remaining -= Size;
+
+    construct CheckFields [repeat declaration_or_statement]
+    	_ [checkBackConstraints ParmName NewReadFields FunctionName]
+
+    by
+	Stmts
+	    [. GetStmts]
+	    [addDebugLong Size ParmName ShortID]
+	    [addDebugLongLong Size ParmName ShortID]
+	    [. CheckFields]
+end function
+
 
 function addUnprotectedInteger aVarElement [struct_element] ParmName [id] SclAdd [opt scl_additions] FunctionName [id]
     replace [repeat declaration_or_statement]
@@ -2517,14 +2655,14 @@ rule generateTypeDecFunctions ModName [id] Ex [opt export_block] TPRules [repeat
 	'[ UniqueID [id] '^ ShortID [id] '] Annot [annotation] '::= TD [type_decision] OptScl [opt scl_additions]
 	Rest [repeat rule_definition]
 
-    construct Refs [repeat type_reference]
+    construct Refs [repeat type_dec_option]
     	_ [^ TD]
 	  %[message "hi"]
 
     construct Parse [repeat rule_definition]
         _ [generateTDParseFunction UniqueID Ex TPRules TypeDec Refs OptScl]
-	  [createSubmessageVersionOfTDParseFunction OptScl]
-	  [createSubmessageVersionOfTDPrototype OptScl]
+	      [createSubmessageVersionOfTDParseFunction OptScl]
+	      [createSubmessageVersionOfTDPrototype OptScl]
 
     construct Free [repeat rule_definition]
        _ [generateTDFree UniqueID Ex TPRules TypeDec Refs]
@@ -2606,7 +2744,10 @@ rule fixEachParseCall ParentType [id]
 	( ParsePtr, ParentType [tolower], thePDU, name, endianness)
 end rule
 
-function generateTDParseFunction RuleName [id] Ex [opt export_block] TPRules [repeat type_rule_definition] TypeDec [repeat type_decision_definition] Refs [repeat type_reference] SclAdd [opt scl_additions]
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% TD Parse Body
+%%%%%%%%%%%%%
+function generateTDParseFunction RuleName [id] Ex [opt export_block] TPRules [repeat type_rule_definition] TypeDec [repeat type_decision_definition] Refs [repeat type_dec_option] SclAdd [opt scl_additions]
 
      construct ParseFunctionName [id]
         _ [+ 'parse]
@@ -2620,7 +2761,8 @@ function generateTDParseFunction RuleName [id] Ex [opt export_block] TPRules [re
       
      construct Body [repeat declaration_or_statement]
         _ [generateLLKOptimizedBody UnionName SclAdd]
-	  [generateUnoptimizedBody UnionName SclAdd Refs]
+          [generateSemChoiceBody UnionName RuleName SclAdd Refs]
+	      [generateUnoptimizedBody UnionName SclAdd Refs]
 
      construct ParseFunction [parse_function]
         Type  [addStaticIfNotExternal RuleName Ex]
@@ -2635,21 +2777,25 @@ function generateTDParseFunction RuleName [id] Ex [opt export_block] TPRules [re
         Functions [addProtoIfPrivate ParseFunctionName RuleName Ex UnionName]
 end function
 
-function generateUnoptimizedBody UnionName [id] SclAdd [opt scl_additions] Refs [repeat type_reference]
+%% Unoptimized
+
+function generateUnoptimizedBody UnionName [id] SclAdd [opt scl_additions] Refs [repeat type_dec_option]
      deconstruct not * [optimizable_block] SclAdd
      	'< lookahead '>
            _ [lookahead_block]
         '</ lookahead '>
+    deconstruct not * [type_choice_option] Refs 
+        _ [type_choice_option]
 
      replace [repeat declaration_or_statement]
         Empty [repeat declaration_or_statement]
      by
 	Empty
-	 [addCallToRef UnionName each Refs]
+	     [addCallToRef UnionName each Refs]
          [addFalseStmt]
 end function
 
-function addCallToRef UnionName [id] aRef [type_reference]
+function addCallToRef UnionName [id] aRef [type_dec_option]
      replace [repeat declaration_or_statement]
         Stmts [repeat declaration_or_statement]
      by
@@ -2657,7 +2803,7 @@ function addCallToRef UnionName [id] aRef [type_reference]
 	      [addCallToExternal UnionName aRef]
 end function
 
-function addCallToInternal UnionName [id] aRef [type_reference]
+function addCallToInternal UnionName [id] aRef [type_dec_option]
      deconstruct aRef % internal is no dot id
 	UniqueID [id] _ [annotation]
      construct ParseName [id]
@@ -2674,7 +2820,7 @@ function addCallToInternal UnionName [id] aRef [type_reference]
      	Stmts [. ParseCall]
 end function
 
-function addCallToExternal UnionName [id] aRef [type_reference]
+function addCallToExternal UnionName [id] aRef [type_dec_option]
      deconstruct aRef % external has dot id
 	Module [id] '. UniqueID [id] _ [annotation]
      construct ParseName [id]
@@ -2691,6 +2837,96 @@ function addCallToExternal UnionName [id] aRef [type_reference]
      	Stmts [. ParseCall]
 end function
 
+%%%%%%%%%%%%%%%%
+%% Semantic choice TD
+%%%%%%%%%%%%%%%%
+function generateSemChoiceBody UnionName [id] RuleName[id] SclAdd [opt scl_additions] Refs [repeat type_dec_option]
+  
+    %% not LLK
+    deconstruct not * [optimizable_block] SclAdd
+     	'< lookahead '>
+           _ [lookahead_block]
+        '</ lookahead '>
+    % at least one choice (and there for all) has a type_choice_option
+    deconstruct * [type_choice_option] Refs 
+        _ [type_choice_option]
+
+     construct RuleNameStr [stringlit]
+        _ [+ RuleName]
+
+     construct DefaultErrorCase [repeat declaration_or_statement]
+         'default:
+             fprintf(stderr, "Unmatched Value %d in Type Decision for %s\n", semanticChoiceValue , RuleNameStr);
+             exit(1);
+
+     construct SwitchBody [repeat declaration_or_statement]
+     	_ [addSwitchCaseSemChoice UnionName each Refs]
+          [. DefaultErrorCase]
+        % TODO need an appropriate default if the value isn't there
+
+
+    construct FailStmts [repeat declaration_or_statement]
+       _ %[restoreState]
+         %[addDebugFail FunctionName]
+         [addFalseStmt]
+
+     replace [repeat declaration_or_statement]
+        Empty [repeat declaration_or_statement]
+     by
+        int semanticChoiceValue = getChoice(thePDU,RuleNameStr);
+	    switch(semanticChoiceValue) '{
+	        SwitchBody
+	    '}
+	    FailStmts
+end function
+
+function addSwitchCaseSemChoice UnionName [id] aSemChoice [type_dec_option]
+     replace [repeat declaration_or_statement]
+        Cases [repeat declaration_or_statement]
+     by
+     	Cases [addSimpleCaseSemChoice UnionName  aSemChoice]
+     	      [addEnumCaseSemChoice UnionName  aSemChoice]
+end function
+
+function addSimpleCaseSemChoice UnionName [id] aSemChoice[type_dec_option]
+
+     deconstruct  aSemChoice
+         TR [type_reference ] '( Value [number] ')
+
+     construct IfStmts [repeat declaration_or_statement]
+     	_ [buildIfForCase UnionName TR]
+	      [addBreak]
+     construct SwitchCase [repeat declaration_or_statement]
+        'case Value:
+	   IfStmts
+
+     replace [repeat declaration_or_statement]
+        Cases [repeat declaration_or_statement]
+     by
+     	Cases [. SwitchCase]
+end function
+
+function addEnumCaseSemChoice UnionName [id] aSemChoice[type_dec_option]
+
+     deconstruct  aSemChoice
+         TR [type_reference ] '( '[ UniqueName [id] '^ ShortName [id] '] ')
+
+     construct IfStmts [repeat declaration_or_statement]
+     	_ [buildIfForCase UnionName TR]
+	      [addBreak]
+     construct SwitchCase [repeat declaration_or_statement]
+        'case UniqueName:
+	   IfStmts
+
+     replace [repeat declaration_or_statement]
+        Cases [repeat declaration_or_statement]
+     by
+     	Cases [. SwitchCase]
+end function
+
+%%%%%%%%%%%%%%%%
+%% LLK optimized Vesion
+%%%%%%%%%%%%%%%%
 function generateLLKOptimizedBody UnionName [id] SclAdd [opt scl_additions]
      deconstruct * [optimizable_block] SclAdd
         '< lookahead '>
@@ -2865,7 +3101,7 @@ end function
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % free function for a exported type
-function generateTDFree RuleName [id] Ex [opt export_block] TPRules [repeat type_rule_definition] TypeDec [repeat type_decision_definition] Refs [repeat type_reference]
+function generateTDFree RuleName [id] Ex [opt export_block] TPRules [repeat type_rule_definition] TypeDec [repeat type_decision_definition] Refs [repeat type_dec_option]
 
      construct FreeFunctionName [id]
         _ [+ 'free]
@@ -2929,7 +3165,7 @@ function generateTDFree RuleName [id] Ex [opt export_block] TPRules [repeat type
         Functions
 end function
 
-function addSwitchCaseFree ParmName [id] aRef [type_reference]
+function addSwitchCaseFree ParmName [id] aRef [type_dec_option]
     replace [repeat declaration_or_statement]
         Cases [repeat declaration_or_statement]
     by
@@ -2938,9 +3174,9 @@ function addSwitchCaseFree ParmName [id] aRef [type_reference]
 	  [addFreeToExternal ParmName aRef]
 end function
 
-function addFreeToInternal UnionName [id] aRef [type_reference]
+function addFreeToInternal UnionName [id] aRef [type_dec_option]
     deconstruct aRef % internal is no dot id
-        UniqueID [id] _ [annotation] _ [opt unused_annotation]
+        UniqueID [id]  _ [annotation] _ [opt unused_annotation] _ [opt type_choice_option]
 
     construct FreeName [id]
     	_ [+ 'free]
@@ -2955,9 +3191,9 @@ function addFreeToInternal UnionName [id] aRef [type_reference]
 	Cases
 end function
 
-function addFreeToExternal UnionName [id] aRef [type_reference]
+function addFreeToExternal UnionName [id] aRef [type_dec_option]
     deconstruct aRef % external has dot id
-        Module [id] '. UniqueID [id] _ [annotation] _ [opt unused_annotation]
+        Module [id] '. UniqueID [id]  _ [annotation] _ [opt unused_annotation] _ [opt type_choice_option]
 
     construct FreeName [id]
     	_ [+ 'free]

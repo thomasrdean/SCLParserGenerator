@@ -1,0 +1,45 @@
+
+
+FWD1 DEFINITIONS ::= BEGIN
+
+PDU ::= SEQUENCE {
+  T1 TAG (SIZE 1 BYTES),
+  T2 TAG (SIZE 1 BYTES),
+  T3 TAG (SIZE 1 BYTES),
+  T4 TAG (SIZE 1 BYTES),
+  D1 DATA (SIZE DEFINED) OPTIONAL,
+  D2 DATA (SIZE DEFINED) OPTIONAL,
+  D3 DATA (SIZE DEFINED) OPTIONAL,
+  D4 DATA (SIZE DEFINED) OPTIONAL,
+ } (ENCODED BY CUSTOM)
+<transfer>
+ Forward { EXISTS(D1) == (T1 != 0) }
+ Forward { CHOICE(D1) == T1 }
+ Forward { EXISTS(D2) == (T2 != 0) }
+ Forward { CHOICE(D2) == T2 }
+ Forward { EXISTS(D3) == (T3 != 0) }
+ Forward { CHOICE(D3) == T3 }
+ Forward { EXISTS(D4) == (T4 != 0) }
+ Forward { CHOICE(D4) == T4 }
+</transfer>
+
+DATA ::= (INT4(IntTag) | FLT4(FlaotTag) | DBL8(DblTag))
+
+INT4 ::= SEQUENCE {
+    val INTEGER (SIZE 4 BYTES)
+} (ENCODED BY CUSTOM)
+
+FLT4 ::= SEQUENCE {
+    val REAL (SIZE 4 BYTES)
+} (ENCODED BY CUSTOM)
+
+DBL8 ::= SEQUENCE {
+    val REAL (SIZE 8 BYTES)
+} (ENCODED BY CUSTOM)
+
+TAG ::= ENUMERATED {
+   None (0), IntTag, FloatTag, DblTag
+}
+
+
+END

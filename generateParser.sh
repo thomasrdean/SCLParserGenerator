@@ -170,8 +170,12 @@ do
     txl -q ${TxlDir} ${TmpDir}/"$filename"_decl.scl5 02UID_ref.txl  - -Intermediate "${TmpDir}" > ${TmpDir}/"$filename"_ref.scl5
     ret=$?; if [ $ret -ne 0 ]; then exit $ret; fi;
 
+    # Check enum and semantic choice
+    txl -q ${TxlDir} ${TmpDir}/"$filename"_ref.scl5 04.1ValidateChoiceAndEnum.txl  > ${TmpDir}/"$filename"_enumCheck.scl5
+    ret=$?; if [ $ret -ne 0 ]; then exit $ret; fi;
+
     # Callback annotation
-    txl -q ${TxlDir} ${TmpDir}/"$filename"_ref.scl5 04Callback_Annotation.txl  > ${TmpDir}/"$filename"_callback.scl5
+    txl -q ${TxlDir} ${TmpDir}/"$filename"_enumCheck.scl5 04Callback_Annotation.txl  > ${TmpDir}/"$filename"_callback.scl5
     ret=$?; if [ $ret -ne 0 ]; then exit $ret; fi;
 
     # LL annotation

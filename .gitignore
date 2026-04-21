@@ -46,4 +46,7 @@ newATC/ros_ws/log/
 newATC/ros_ws/build/
 **/DerivedData/*
 **/INTERMEDIATE/*
+**/INTERBK/*
 **/GENSOURCE/*
+**/GENBK/*
+**/ConformSrc/*

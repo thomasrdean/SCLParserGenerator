@@ -644,11 +644,53 @@ function addProtectedWrite RuleName [id] ParmName [id] SclAdd [opt scl_additions
     by
 	Stmts
 	    % Todo expand backconstraints for non-integer fields
+	    [addProtectedEnum aConstElement ParmName FunctionName]
 	    [addProtectedInteger aConstElement ParmName FunctionName]
 	    [addProtectedOctetStringInt aConstElement ParmName FunctionName]
 	    [addProtectedOctetStringChar aConstElement ParmName FunctionName]
 	    [addProtectedReal aConstElement ParmName FunctionName]
 	    [addProtectedUserDefinedConst aConstElement ParmName SclAdd FunctionName]
+end function
+
+function addProtectedEnum aConstElement [struct_element] ParmName [id] FunctionName [id]
+    replace [repeat declaration_or_statement]
+	Stmts [repeat declaration_or_statement]
+    deconstruct aConstElement
+       '[ UniqueID [id] '^ ShortID [id] '] Annot [annotation] EnumType[id] '(SIZE Size [number] BYTES) TA [repeat type_attribute]
+
+	%uint32_t get32_e(PDU * thePDU, uint8_t endianness) 
+    construct Bits [number]
+    	Size [* 8]
+
+    construct ShortEnumType [stringlit]
+    	_ [+ EnumType]
+   	  [removeFirstUnderscoreRest]
+
+    construct FormatString [stringlit]
+        _ [+ '"%*c"]
+	  [+ ShortID]
+	  [+ '" "]
+	  [+ ShortEnumType]
+	  [+" %0*llx(%llu)\n"]
+
+    construct PrintStmt [declaration_or_statement]
+        fprintf('pf, FormatString, 'indent + 2,'' ', Size [* 2], ('unsigned 'long 'long) ParmName '-> ShortID [tolower], ('unsigned 'long 'long) ParmName '-> ShortID [tolower]);
+
+    by
+	Stmts [. PrintStmt] 
+end function
+
+function removeFirstUnderscoreRest
+    replace [stringlit]
+	FileName [stringlit]
+    construct Under [number]
+    	_ [index FileName '_]
+    where
+    	Under [> 1]
+    construct UnderM1 [number]
+    	Under [- 1]
+    by
+       FileName [: 1 UnderM1]
 end function
 
 function addProtectedInteger aConstElement [struct_element] ParmName [id] FunctionName [id]

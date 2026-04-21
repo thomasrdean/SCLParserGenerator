@@ -48,6 +48,7 @@ TODO:
 7. ALIGN attribute (needed for RTPS App Data)
 8. Option to free strucutres after callback.
 9. Reorg of programs and more comments.
+10. Type Decision refernces are not renamed
 
 Other optimziations to do
 -------------------

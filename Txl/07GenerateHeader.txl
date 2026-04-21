@@ -227,6 +227,7 @@ rule processEachModule
 	 Rules
 	     [translateTypeDecisions Exports TagTypeName]
 	     [translateTypeStructs Exports]
+	     [translateEnumTypes]
 	     [addEnums TagTypeName]
 	     [addModules Imports]
       'END
@@ -484,9 +485,10 @@ function addUnionElementIfDot aType [type_reference]
     by
     	Elements [. Member]
 end function
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
-% Step 1 - Structure Type 
-% Structure Type Decisions become c structures with one or more C fields for
+% Step 2 - Structure Type 
+% Structure Types become c structures with one or more C fields for
 % each element
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
 
@@ -538,6 +540,7 @@ function addMemberForEachElement SclAdd [opt scl_additions] anElement [struct_el
 	   [addExternalSizeBasedOptionalType anElement]
 	   [addSetOfType anElement]
 	   [addExternalSetOfType anElement]
+	   [addEnumerated anElement]
 	   [addInteger anElement]
 	   [addReal anElement]
 	   [addDynamicOctetString anElement]
@@ -551,6 +554,7 @@ end function
 % Function to generate the variable for a [size_based_type] definition;
 % This is a variable with a user defined type
 % must not be optional
+
 function addSizeBasedType anElement [struct_element]
     deconstruct anElement
 	'[ Unique [id] '^ ShortName [id] '] Annots [annotation] ElementType [id] '('SIZE 'DEFINED') TypeAttr [repeat type_attribute]
@@ -605,63 +609,105 @@ end function
 % This is a variable with a user defined type declared as a pointer
 function addExternalSizeBasedOptionalType anElement [struct_element]
     deconstruct anElement
-	'[ Unique [id] '^ ShortName [id] '] Annots [annotation] ModuleName [id] . ExternalType [id] '('SIZE 'DEFINED') TypeAttr [repeat type_attribute] 
+	    '[ Unique [id] '^ ShortName [id] '] Annots [annotation] ModuleName [id] . ExternalType [id] '('SIZE 'DEFINED') TypeAttr [repeat type_attribute] 
 
-    % must have optional
-    deconstruct * [optional] TypeAttr
-    	'OPTIONAL
+	% must have optional
+	deconstruct * [optional] TypeAttr
+	    'OPTIONAL
 
-    construct Decl [member_declaration]
-	ExternalType * ShortName [tolower] ';	% Pointer variable
-    replace [repeat member_declaration]
-	MD [repeat member_declaration]
-    by
-	MD [. Decl]	% Append variable to the body
-end function
+	construct Decl [member_declaration]
+	    ExternalType * ShortName [tolower] ';	% Pointer variable
+	replace [repeat member_declaration]
+	    MD [repeat member_declaration]
+	by
+	    MD [. Decl]	% Append variable to the body
+    end function
 
-function addSetOfType anElement [struct_element]
-    deconstruct anElement
-	'[ Unique [id] '^ ShortName [id] '] Annots [annotation] 'SET 'OF ElementType [id]  '('SIZE 'CONSTRAINED') TypeAttr [repeat type_attribute]
-
-    construct Decl [repeat member_declaration]
-	'unsigned 'long ShortName [+ "length"] [tolower]';
-	'unsigned 'long ShortName [+ "Count"] [tolower]';
-	ElementType '* ShortName[tolower]';
-
-    replace [repeat member_declaration]
-	MD [repeat member_declaration]
-    by
-	MD [. Decl] % Append variables to the body
-end function
-
-function addExternalSetOfType anElement [struct_element]
-    deconstruct anElement
-	'[ Unique [id] '^ ShortName [id] '] Annots [annotation] 'SET 'OF ModuleName [id] . ExternalType [id]  '('SIZE 'CONSTRAINED') TypeAttr [repeat type_attribute]
-
-    construct Decl [repeat member_declaration]
-	'unsigned 'long ShortName [+ "length"] [tolower]';
-	'unsigned 'long ShortName [+ "Count"] [tolower]';
-	ExternalType '* ShortName[tolower]';
-
-    replace [repeat member_declaration]
-	MD [repeat member_declaration]
-    by
-	MD [. Decl] % Append variables to the body
-end function
-
-
-
-% Function to generate the variable for an [integer_type] definition;
-% This is a variable with a specified number of bits required. It is
-% stored as a uint# where the # is calculated from the [element_type]
-
-define number_pair
-    [number] [number]
-end define
-
-function addInteger anElement [struct_element]
+    function addSetOfType anElement [struct_element]
 	deconstruct anElement
-	    '[ Unique [id] '^ ShortName [id] '] Annots [annotation] 'INTEGER '( 'SIZE Size [number] 'BYTES ') TypeAttr [repeat type_attribute]
+	    '[ Unique [id] '^ ShortName [id] '] Annots [annotation] 'SET 'OF ElementType [id]  '('SIZE 'CONSTRAINED') TypeAttr [repeat type_attribute]
+
+	construct Decl [repeat member_declaration]
+	    'unsigned 'long ShortName [+ "length"] [tolower]';
+	    'unsigned 'long ShortName [+ "Count"] [tolower]';
+	    ElementType '* ShortName[tolower]';
+
+	replace [repeat member_declaration]
+	    MD [repeat member_declaration]
+	by
+	    MD [. Decl] % Append variables to the body
+    end function
+
+    function addExternalSetOfType anElement [struct_element]
+	deconstruct anElement
+	    '[ Unique [id] '^ ShortName [id] '] Annots [annotation] 'SET 'OF ModuleName [id] . ExternalType [id]  '('SIZE 'CONSTRAINED') TypeAttr [repeat type_attribute]
+
+	construct Decl [repeat member_declaration]
+	    'unsigned 'long ShortName [+ "length"] [tolower]';
+	    'unsigned 'long ShortName [+ "Count"] [tolower]';
+	    ExternalType '* ShortName[tolower]';
+
+	replace [repeat member_declaration]
+	    MD [repeat member_declaration]
+	by
+	    MD [. Decl] % Append variables to the body
+    end function
+
+
+
+    % functon to add an enumerated type. Assumes an euerated type is represented as an
+    % integer in the underlying C representation.
+    %
+    % TODO - need a list of enumerated types to check that the type is an enumerated type
+    %
+
+    function addEnumerated anElement [struct_element]
+	    deconstruct anElement
+		'[ Unique [id] '^ ShortName [id] '] Annots [annotation] EnumType [id] '( 'SIZE Size [number] 'BYTES ') TypeAttr [repeat type_attribute]
+
+	% current implmentation limited to 64 bit integers
+	% Also have to round the number to the nearest integer size
+
+	% TODO, TD 2021 should we have round everyitng to 32/64? Does it matter
+	% for speed?
+
+
+	% remove this message if we implement bigints in a separate rule in the future.
+	construct Msg [number]
+		Size [checkMaxNumberSize 'integer '8]
+
+	where
+		Size [<= 8]	% If the number of bytes is greater than 8 it
+				% cannot be represented as a uint
+	construct SizeTable [repeat number_pair]
+	   1 8 2 16 3 32 4 32 5 64 6 64 7 64 8 64
+
+	deconstruct * [number_pair] SizeTable
+		Size NumBits [number]
+
+	construct IntType [id]
+	   _ [+ 'uint] [+ NumBits] [+ '_t]
+
+	construct Decl [member_declaration]
+		IntType ShortName [tolower] ';
+
+	replace [repeat member_declaration]
+	    MD [repeat member_declaration]
+	by
+	    MD [. Decl]	% Append variable to the body
+end function
+
+    % Function to generate the variable for an [integer_type] definition;
+    % This is a variable with a specified number of bits required. It is
+    % stored as a uint# where the # is calculated from the [element_type]
+
+    define number_pair
+	[number] [number]
+    end define
+
+    function addInteger anElement [struct_element]
+	    deconstruct anElement
+		'[ Unique [id] '^ ShortName [id] '] Annots [annotation] 'INTEGER '( 'SIZE Size [number] 'BYTES ') TypeAttr [repeat type_attribute]
 
 	% current implmentation limited to 64 bit integers
 	% Also have to round the number to the nearest integer size
@@ -915,6 +961,42 @@ function OneIfSAVEPOSInType Type [type]
     	'1
 end function
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+% Step 3 - Enumerated Types
+% Enumerated Type Decisions become c enjmerated types with explicit values
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+
+rule translateEnumTypes 
+    replace [repeat rule_definition]
+	'[ UniqueName [id] '^ ShortName [id] '] Annot [annotation] '::= 
+
+	    'ENUMERATED SZ [opt size_constraint] '{
+	       Enums [list enum_ident] _ [opt ',]
+	    }
+	SclAdd [opt scl_additions]
+	Rest [repeat rule_definition]
+
+    construct Tags [list enumerator]
+    	_ [addEnumIdentAsEnumerator each Enums]
+
+    construct EnumDef [enum_translation]
+        'typedef 'enum '{ Tags  '} UniqueName ';
+    by
+       EnumDef
+       Rest
+end rule
+
+function addEnumIdentAsEnumerator anEnum [enum_ident]
+    deconstruct anEnum
+    	'[ UniqueId [id] '^ ShortName [id] '] '( Val [number] ')
+    replace [list enumerator]
+    	Enums [list enumerator]
+    construct aCEnum [enumerator]
+	UniqueId = Val
+    by
+    	Enums [, aCEnum]
+end function
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % General Utiliy Rules
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1060,6 +1142,7 @@ function addFreeFunction UniqueName [id] Exports [opt export_block]
         FreeFn
 end function
 
+% note this add enums is for the tag enums used for type decisions.
 function addEnums TagTypeName [id]
 
     replace [repeat rule_definition]

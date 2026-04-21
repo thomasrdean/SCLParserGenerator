@@ -62,6 +62,7 @@ end define
 define pos_size_annotation
     [const_pos_size_annotation]
   | [var_pos_size_annotation]
+  | [enum_annotation]
 end define
 
 % first number is position of field, second is size
@@ -74,6 +75,12 @@ end define
 % but the position is variable
 define var_pos_size_annotation
   @ VAR [opt number]
+end define
+
+% Enumerated types do not have a given size, if they are used
+% as a field type, then the size of that field will be specified.
+define enum_annotation
+  @ ENUM 
 end define
 
 % Contraint annotation used to mark fields use in transfer constraints

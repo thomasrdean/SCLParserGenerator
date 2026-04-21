@@ -12,18 +12,31 @@
 #ifndef _PACKET_H_
 #define _PACKET_H_
 
+typedef struct choiceNode {
+    char * ruleName;
+    int choiceVal;
+    struct choiceNode *next;
+} choiceNode;
+
 typedef struct _pdu {
     unsigned char * data;   // The actual PDU data
     unsigned long len;      // PDULENGTH
     unsigned long watermark; //watermark to determine if the curPos was set outside the pdu length by doToken set to "len by readPDU
     unsigned long curPos;   // Current parse position 0..len
     unsigned long curBitPos;    // current position within a bit 0..8
-    unsigned long remaining;
-                    // used when parsing flags.
+    unsigned long remaining; // used when parsing flags.
+    // for choices, need a stack of values for each 
+    // must endure that this is NULL, althogh correct
+    // SCL code will never reach the null value;
+    choiceNode * choices; 
+    // for packet header info
    	struct HeaderInfo * header;
 } PDU;
 
 /* read a PDU from a file */
-PDU * readPDU(char *);
+PDU * readPDU(char *, char * prognamne);
+
+void pushChoice(PDU *context, char * ruleName, int choiceVal);
+int getChoice(PDU *context, char * ruleName);
 
 #endif /* _PACKET_H_ */
