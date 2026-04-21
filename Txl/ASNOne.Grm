@@ -42,7 +42,7 @@ keys
     'OPTIONAL 'PRESENT 'DEFAULT 'ABSENT 'COMPONENTS 'DEFINED 'UNIVERSAL 'BY
     'APPLICATION 'PLUS-INFINITY 'PRIVATE 'MINUS-INFINITY 'TRUE 'TAGS 'FALSE
     'AUTOMATIC 'EXTENSIBILITY 'IMPLIED 'ENCODED 'CONTAINING 'VisibleString 'UTCTime  
-    'STRING 'GeneralizedTime 'IA5String
+    'STRING 'GeneralizedTime 'IA5String  'INCLUDE
 end keys
 
 tokens
@@ -101,6 +101,7 @@ end define
 define rule_definition
       [type_rule_definition]
     | [type_decision_definition]
+    | [include_statemnt]
 end define
 
 define type_rule_definition
@@ -137,6 +138,10 @@ end define
 
 define type_decl
     [decl]
+end define
+
+define include_statemnt
+    'INCLUDE [stringlit]
 end define
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
