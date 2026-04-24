@@ -1,0 +1,9 @@
+CXXFLAGS=-g -O0 -std=c++11
+sslskel: sslskel.o SslSkelParser.o
+	c++ $(CFLAGS) -o sslskel sslskel.o SslSkelParser.o
+
+sslskel.o: sslskel.cpp SslSkelParser.h
+SslSkelParser.o: SslSkelParser.cpp sslskel.sst.c sslskel.sst.h
+
+sslskel.sst.c sslskel.sst.h: sslskel.ssl
+	ssl -n SslSkelParser::sslTable sslskel.ssl

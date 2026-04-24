@@ -34,13 +34,35 @@ function main
     export ErrorCount [number]
     	0
     by
-	P [checkSyntaxRestrictions]
+	P [doIncludes]
+	  [checkSyntaxRestrictions]
 	  [checkErrors]
 	  [noUnderscores]
 	  [doDecls]
 	  [checkMissedDecl]
 	  [checkErrors]
 end function
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Step 0:  Handle include statements.
+% include statement is a rule type, and the file must include
+% repeat rule definitionss,
+% TODO add flag for include directory
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+rule doIncludes
+   replace $ [repeat rule_definition]
+       'INCLUDE filename [stringlit]
+       Rest [repeat rule_definition]
+   construct Msg [stringlit]
+       _ [+ '"Including file "]
+         [+ filename]
+	 [print]
+   construct IncludedRules [repeat rule_definition] 
+   	_ [read filename]
+   by
+       IncludedRules [. Rest]
+end rule
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Step 1: The new grammar is a bit more permissive than the language.
