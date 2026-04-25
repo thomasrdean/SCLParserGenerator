@@ -19,25 +19,25 @@ int main(int argc, char * argv[]){
         exit(1);
     }
 
-     std::ifstream iFile(argv[1]);
+    std::ifstream iFile(argv[1]);
 
-     if (! iFile.is_open()){
+    if (! iFile.is_open()){
         std::cerr << argv[0] << ": could not open " << argv[1] << "for read" << std::endl;
         exit(1);
-     }
+    }
 
-     SCLScanner scanner;
+    SCLScanner scanner;
 
-     scanner.setFile(&iFile);
+    scanner.setFile(&iFile);
 
-     InputToken theToken = scanner.nextToken();
+    InputToken theToken = scanner.nextToken();
 
-     if (theToken != tEndOfFile){
-        std::cerr << "Wrong token" << std::endl;
-     }
+    while (theToken != tEndOfFile){
+        std::cout << scanner.tokenToString(theToken) << std::endl;
+    }
 
 
-     iFile.close();
+    iFile.close();
 }
 
 

@@ -1,15 +1,20 @@
-CXXFLAGS=-g -O0 -std=c++11
-all: scl testScanner
+DEFS=
+SHELL=		/bin/sh
+CC=		cc
+COPTS=		-g -Bstatic
+BIN=	/local/bin
+CFLAGS=		$(COPTS) $(DEFS) $(INCL)
 
-testscanner: testScanner.o SCLScanner.o
-	c++ $(CFLAGS) -o $@ $^
+ssl:	ssl.c
+	$(CC) $(CFLAGS) -I../include -o ssl ssl.c
 
-scl: scl.o SCLParser.o SCLScanner.o
-	c++ $(CFLAGS) -o scl scl.o SCLParser.o SCLScanner.o
-	
-scl.o: scl.cpp SCLParser.h
-SCLParser.o: SCLParser.cpp SCL.sst.c SCL.sst.h
-SCLScanner.o: SCLScanner.h SCLParser.h SCL.sst.h
+test:	ssl
+	./ssl ssl.ssl
+	diff ssl.sst.c ssl:sst.c
+	diff ssl.sst.h ssl:sst.h
 
-SCL.sst.c SCL.sst.h: SCL.ssl
-	ssl -n SCLParser::sslTable SCL.ssl
+install:	ssl
+	install -s -m 755 ssl $(BIN)
+
+clean:
+	-rm -f ssl ssl.sst.c ssl.sst.h ssl.o ssl.entry Makefile.bak

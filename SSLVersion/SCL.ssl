@@ -1,0 +1,110 @@
+input:
+	tSyntaxError = -1
+
+	% compound tokens
+	tIdent		'ident'
+	tStringL	'stringL'
+	tIntegerL	'integerL'
+
+    % symbols
+	tLT		    '<'
+    tLE         '<='
+    tLSFT       '<<'
+	tGT	    	'>'
+    tGE         '>='
+    tRS         '>>'
+	tASSIGN		'='
+	tEQ		    '=='
+	tNEQ		'!='
+	tIS		    '::='
+    tBOR        '|'
+    tROR        '||'
+    tBAND       '&'
+    tRAND       '&&'
+	tSemicolon	';'
+
+	% keywords
+    tABSENT        'ABSENT'
+    tANY        'ANY'
+    tAPPLICATION    'APPLICATION'
+    tAUTOMATIC    'AUTOMATIC'
+	tBOOLEAN	'BOOLEAN'
+	tBEGIN		'BEGIN'
+	tBIG		'BIG'
+    tBIT        'BIT'
+    tBY            'BY'
+    tCOMPONENT    'COMPONENT'
+    tCOMPONENTS    'COMPONENTS'
+    tCONTAINING    'CONTAINING'
+    tDEFAULT    'DEFAULT'
+    tDEFINED    'DEFINED'
+    tDEFINITIONS 	'DEFINITIONS'
+    tENCODED    'ENCODED'
+    tEND        'END'
+    tEXPLICIT   'EXPLICIT'
+    tEXPORTS    'EXPORTS'
+    tEXTENSIBILITY    'EXTENSIBILITY'
+    tEXTERNAL    'EXTERNAL'
+    tFALSE        'FALSE'
+    tFROM        'FROM'
+    tGeneralizedTime    'GeneralizedTime'
+    tIAString    'IAString'
+    tIDENTIFIER    'IDENTIFIER'
+    tIMPLICIT    'IMPLICIT'
+    tIMPLIED    'IMPLIED'
+    tIMPORTS    'IMPORTS'
+    tINCLUDE    'INCLUDE'
+    tINCLUDES   'INCLUDES'
+    tINTEGER    'INTEGER'
+    tMINUSINFINITY    'MINUSINFINITY'
+    tNULL       'NULL'
+    tOCTET      'OCTET'
+    tOBJECT        'OBJECT'
+    tOF         'OF'
+    tOPTIONAL    'OPTIONAL'
+    tPRESENT    'PRESENT'
+    tPLUSINFINITY    'PLUSINFINITY'
+    tPRIVATE    'PRIVATE'
+    tREAL        'REAL'
+    tSEQUENCE   'SEQUENCE'
+	tSET		'SET'
+    tSIZE        'SIZE'
+    tSTRING        'STRING'
+    tTAGS        'TAGS'
+    tTRUE        'TRUE'
+	tUNIVERSAL	'UNIVERSAL'
+    tUTCTime    'UTCTime'
+    tVisibleString    'VisibleString'
+    tWITH        'WITH'
+
+	tNewLine	'<NL>'
+	tEndOfFile	'<EOF>'
+	tIllegal
+	;
+
+output:
+	aOutputToken;
+
+error:
+	eFirstUserError = 10
+	eSslStackOverflow = 40
+	;
+
+%type Type:
+%	;
+
+%mechanism Mechanism
+%	;
+
+rules
+
+Program:
+   {[
+       | tIdent :
+                tDEFINITIONS
+                tEND
+        | tEndOfFile:
+            >
+   ]};
+
+end

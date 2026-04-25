@@ -1,4 +1,6 @@
 #include <iostream>
+#include <fstream>
+#include <map>
 
 class SCLScanner {
 public:
@@ -8,8 +10,11 @@ public:
     }
     
     InputToken nextToken();
+    const std::string tokenToString(InputToken);
     
 private:
     std::ifstream * infp;
-    char c;
+    char c = -1;
+    std::string ident;
+    std::map<std::string,InputToken> keys;
 };
