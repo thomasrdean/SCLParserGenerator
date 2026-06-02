@@ -675,6 +675,7 @@ u_int choiceTop = 0;
 FILE *sourcefp;
 FILE *headerfp;
 FILE *tablefp;
+FILE *tokenfp;
 FILE *listfp;
 FILE *entryfp;
 char * nameSpace;
@@ -684,42 +685,45 @@ extern char *optarg;
 
 char *progname;
 
-extern void Error(), InitInputScanner(), AcceptInputToken(), Emit();
-extern void EmitNullAddress(), EmitNullCallAddress(), EnterNewSymbol();
-extern void LookupSymbol(), xEnterNewSymbolValue(), EnterSecondNewSymbolValue();
-extern void EnterSymbolValueFromAddress(), xSetCurrentClass();
-extern void SetNextValueOfCurrentClass(), IncrementCurrentClassValue();
-extern void ChangeSymbolClass(), xEnterSymbolParameterClass();
-extern void yEnterSymbolResultClass(), SaveCurrentSymbol();
-extern void RestoreCurrentSymbol(), SaveEnclosingSymbol();
-extern void RestoreEnclosingSymbol(), InitSymbolTable();
-extern void EnterCall(), ResolveCalls(), InitCallTable(), PushCycle();
-extern void EnterCycleExit(), ResolveCycleExits(), PopCycle();
-extern void EmitCycleAddress(), InitCycleStack(), PushChoice();
-extern void EnterChoiceMerge(), ResolveChoiceMerges(), xEnterChoiceLabel();
-extern void PopChoice(), xResolveChoiceTableAddress(), EmitChoiceTable();
-extern void EmitFirstChoiceAddress(), xEmitFirstChoiceValue();
-extern void ChangeChoiceClass(), InitChoiceStack(), GenerateSymbolDefinitions();
-extern void GenerateOutputTable(), SslSyntaxError(), SslTrace(), SslFailure();
-extern void SslChoice(), GenerateEntryPoints();
-extern Validity VerifyChoiceLabel();
+void Error(ErrorCode), InitInputScanner(), AcceptInputToken(), Emit(int);
+void EmitNullAddress(), EmitNullCallAddress(), EnterNewSymbol();
+void LookupSymbol(), xEnterNewSymbolValue(), EnterSecondNewSymbolValue();
+void EnterSymbolValueFromAddress(), xSetCurrentClass(SymbolClass);
+void SetNextValueOfCurrentClass(int), IncrementCurrentClassValue();
+void ChangeSymbolClass(), xEnterSymbolParameterClass();
+void yEnterSymbolResultClass(), SaveCurrentSymbol();
+void RestoreCurrentSymbol(), SaveEnclosingSymbol();
+void RestoreEnclosingSymbol(), InitSymbolTable();
+void EnterCall(), ResolveCalls(), InitCallTable(), PushCycle();
+void EnterCycleExit(), ResolveCycleExits(), PopCycle();
+void EmitCycleAddress(), InitCycleStack(), PushChoice(SymbolClass);
+void EnterChoiceMerge(), ResolveChoiceMerges(), xEnterChoiceLabel(int);
+void PopChoice(), xResolveChoiceTableAddress(), EmitChoiceTable();
+void EmitFirstChoiceAddress(), xEmitFirstChoiceValue();
+void ChangeChoiceClass(SymbolClass), InitChoiceStack(), GenerateSymbolDefinitions();
+void GenerateOutputTable(char * typeName, char *tableName);
+void SslSyntaxError(), SslTrace(), SslFailure(FailureCode failCode);
+void SslChoice(int choiceTag), GenerateEntryPoints(char *);
+Validity VerifyChoiceLabel(int);
 
 boolean tracing;
 boolean summarize;
 
-int
-main(argc, argv)
-	int argc;
-	char *argv[];
-{
+// function prototypes
+char *basename(char *);
+char * strsave(char * s);
+int hash(register char *s);
+
+
+int main(int argc, char *argv[]) {
 	SymbolClass c, d;
 	int ch, errflag;
 	int v;
 	boolean listing;
 	char buf[1024 /* PATH_MAX */], *useEnum, *typeName;
-	char *inFile, *tableFile, *headerFile, *listFile, *entryFile;
+	char *inFile, *tableFile, *headerFile, *listFile, *entryFile, *tokenFile;
 	char * tableName;
-	extern char *basename();
+	
 
 	progname = argv[0];
 	/* Get Run Options */
@@ -729,13 +733,13 @@ main(argc, argv)
 	summarize = false;
 	listing = false;
 	errflag = 0;
-	inFile = tableFile = headerFile = listFile = entryFile = NULL;
+	inFile = tableFile = headerFile = listFile = entryFile = tokenFile = NULL;
 	typeName = useEnum = NULL;
 	tableName = NULL;
 	nameSpace = NULL;
-	sourcefp = tablefp = headerfp = listfp = entryfp = NULL;
+	sourcefp = tablefp = headerfp = listfp = entryfp = tokenfp = NULL;
 
-	while ((ch = getopt(argc, argv, "TLsi:h:t:l:e:E:D:n:")) != EOF) {
+	while ((ch = getopt(argc, argv, "TLsi:h:t:l:e:E:D:n:k:")) != EOF) {
 		switch (ch) {
 		case 'T':
 			tracing = true;
@@ -788,6 +792,12 @@ main(argc, argv)
 			else
 				++errflag;
 			break;
+        case 'k':    /* output C S/SL table file */
+            if (*optarg != '\0')
+                tokenFile = optarg;
+            else
+                ++errflag;
+            break;
 		case 'l':	/* output listing file */
 			if (*optarg != '\0')
 				listFile = optarg;
@@ -806,7 +816,7 @@ main(argc, argv)
 		}
 	}
 	if (errflag || argc < optind + 1) {
-		fprintf(stderr, "Usage: %s [-TLs] [-E Name] [-D type] [-h file.sst.h] [-t file.sst.c] [-l file.lst] [-e file.entry] [-n sslTableName] [-i] file.ssl\n", progname);
+		fprintf(stderr, "Usage: %s [-TLs] [-E Name] [-D type] [-h file.sst.h] [-t file.sst.c] [-l file.lst] [-e file.entry] [-n sslTableName] [-k file.tokens.h] [-i] file.ssl\n", progname);
 		exit(1);
 	}
 
@@ -830,9 +840,6 @@ main(argc, argv)
 		fprintf(stderr, "%s: cannot open '%s'\n", progname, headerFile);
 		exit(1);
 	}
-    if (headerfp){
-        fprintf(headerfp,"#pragma once\n");
-    }
 	if (inFile != NULL && tableFile == NULL)
 		(void) sprintf(tableFile = buf, "%s.sst.c", basename(inFile));
 	if (tableFile != NULL
@@ -840,6 +847,14 @@ main(argc, argv)
 		fprintf(stderr, "%s: cannot open '%s'\n", progname, tableFile);
 		exit(1);
 	}
+    if (inFile != NULL && tokenFile == NULL)
+        (void) sprintf(tokenFile = buf, "%s.tokens.h", basename(inFile));
+
+    if (tokenFile != NULL
+        && (tokenfp = fopen(tokenFile, "w")) == NULL) {
+        fprintf(stderr, "%s: cannot open '%s'\n", progname, tokenFile);
+        exit(1);
+    }
 	if (inFile != NULL && listFile == NULL && listing)
 		(void) sprintf(listFile = buf, "%s.lst", basename(inFile));
 	if (listFile != NULL
@@ -1185,12 +1200,8 @@ main(argc, argv)
 	exit(0);
 }
 
-char *
-basename(s)
-	char *s;
-{
-	char *cp;
-	extern char *strsave(), *strrchr();
+char * basename(char *s){
+    char *cp;
 
 	if (strlen(s) > 4 && strcmp(s + strlen(s) - 4, ".ssl") == 0) {
 		cp = strsave(s);
@@ -1200,10 +1211,7 @@ basename(s)
 	return s;
 }
 
-char *
-strsave(s)
-	char *s;
-{
+char * strsave(char * s) {
 	char *cp;
 
 	cp = malloc(strlen(s)+1);
@@ -1211,10 +1219,7 @@ strsave(s)
 	return cp;
 }
 
-int
-hash(s)
-	register char *s;
-{
+int hash(register char *s){
 	int i;
 
 	for (i = 1; *s != '\0'; ++s, i>>=1)
@@ -1222,10 +1227,7 @@ hash(s)
 	return i;
 }
 
-char *
-LowerCase(s)
-	register char *s;
-{
+char * LowerCase(register char* s) {
 	static char buf[BUFSIZ];
 	char *cp;
 
@@ -1259,104 +1261,113 @@ void Error(ErrorCode errCode) {
 	printf(": ");
 
 	switch (errCode) {
-	case eSyntaxError:
-		printf("Syntax error at '%s'\n", nextTokenText);
-		break;
-	case ePrematureEndOfFile:
-		printf("Unexpected end of file\n");
-		break;
-	case eExtraneousProgramText:
-		printf("Extraneous program text\n");
-		break;
-	case eSymbolTooLong:
-		printf("Symbol too long\n");
-		break;
-	case eNumberTooLarge:
-		printf("Integer value too large (or small)\n");
-		break;
-	case eStringTooLong:
-		printf("String too long\n");
-		break;
-	case eUndefinedSymbol:
-		printf("Symbol '%s' undefined\n", compoundText);
-		break;
-	case eSymbolPreviouslyDefined:
-		printf("Symbol '%s' previously defined\n", compoundText);
-		break;
-	case eWrongSymbolClass:
-		printf("Illegal context for symbol '%s'\n", compoundText);
-		break;
-	case eUnresolvedRule:
-		printf("Rule '%s' undefined\n", compoundText);
-		break;
-	case eValueOutOfRange:
-		printf("Symbol value not in table value range\n");
-		break;
-	case eJumpOutOfRange:
-		printf("Jump distance exceeds table value range\n");
-		break;
-	case eIllegalStringSynonym:
-		printf("Illegal string synonym\n");
-		break;
-	case eTooManyTotalSymbolChars:
-		printf("Too many symbols (chars)\n");
-		break;
-	case eTooManySymbols:
-		printf("Too many symbols\n");
-		break;
-	case eTableTooLarge:
-		printf("Table too large\n");
-		break;
-	case eRuleTooLarge:
-		printf("Rule too large\n");
-		break;
-	case eTooManyCalls:
-		printf("Too many rule calls\n");
-		break;
-	case eCyclesTooDeep:
-		printf("Cycles too deep\n");
-		break;
-	case eChoicesTooDeep:
-		printf("Choices too deep\n");
-		break;
-	case eTooManyExits:
-		printf("Too many cycle exits\n");
-		break;
-	case eTooManyLabels:
-	case eTooManyMerges:
-		printf("Too many alternatives\n");
-		break;
-	case eCycleHasNoExits:
-		printf("(Warning) Cycle does not contain a cycle exit\n");
-		break;
-	case eExitNotInCycle:
-		printf("Cycle exit not in cycle\n");
-		break;
-	case eDuplicateLabel:
-		printf("Duplicate alternative label\n");
-		break;
-	case eIllegalParameterClass:
-	case eIllegalResultClass:
-		printf("Type name required as parameter or result type\n");
-		break;
-	case eIllegalNonvaluedReturn:
-		printf("Non-valued return in choice rule\n");
-		break;
-	case eIllegalValuedReturn:
-		printf("Valued return in procedure rule\n");
-		break;
-	case eWrongLabelClass:
-		printf("Alternative label is wrong type\n");
-		break;
-	case eWrongParameterClass:
-		printf("Parameter is wrong type\n");
-		break;
-	case eWrongDeclaredResultClass:
-		printf("Result type does not match previous use\n");
-		break;
-	case eWrongResultClass:
-		printf("Result value is wrong type\n");
-		break;
+        case eSyntaxError:
+            printf("Syntax error at '%s'\n", nextTokenText);
+            break;
+        case ePrematureEndOfFile:
+            printf("Unexpected end of file\n");
+            break;
+        case eExtraneousProgramText:
+            printf("Extraneous program text\n");
+            break;
+        case eSymbolTooLong:
+            printf("Symbol too long\n");
+            break;
+        case eNumberTooLarge:
+            printf("Integer value too large (or small)\n");
+            break;
+        case eStringTooLong:
+            printf("String too long\n");
+            break;
+        case eUndefinedSymbol:
+            printf("Symbol '%s' undefined\n", compoundText);
+            break;
+        case eSymbolPreviouslyDefined:
+            printf("Symbol '%s' previously defined\n", compoundText);
+            break;
+        case eWrongSymbolClass:
+            printf("Illegal context for symbol '%s'\n", compoundText);
+            break;
+        case eUnresolvedRule:
+            printf("Rule '%s' undefined\n", compoundText);
+            break;
+        case eValueOutOfRange:
+            printf("Symbol value not in table value range\n");
+            break;
+        case eJumpOutOfRange:
+            printf("Jump distance exceeds table value range\n");
+            break;
+        case eIllegalStringSynonym:
+            printf("Illegal string synonym\n");
+            break;
+        case eTooManyTotalSymbolChars:
+            printf("Too many symbols (chars)\n");
+            break;
+        case eTooManySymbols:
+            printf("Too many symbols\n");
+            break;
+        case eTableTooLarge:
+            printf("Table too large\n");
+            break;
+        case eRuleTooLarge:
+            printf("Rule too large\n");
+            break;
+        case eTooManyCalls:
+            printf("Too many rule calls\n");
+            break;
+        case eCyclesTooDeep:
+            printf("Cycles too deep\n");
+            break;
+        case eChoicesTooDeep:
+            printf("Choices too deep\n");
+            break;
+        case eTooManyExits:
+            printf("Too many cycle exits\n");
+            break;
+        case eTooManyLabels:
+        case eTooManyMerges:
+            printf("Too many alternatives\n");
+            break;
+        case eCycleHasNoExits:
+            printf("(Warning) Cycle does not contain a cycle exit\n");
+            break;
+        case eExitNotInCycle:
+            printf("Cycle exit not in cycle\n");
+            break;
+        case eDuplicateLabel:
+            printf("Duplicate alternative label\n");
+            break;
+        case eIllegalParameterClass:
+        case eIllegalResultClass:
+            printf("Type name required as parameter or result type\n");
+            break;
+        case eIllegalNonvaluedReturn:
+            printf("Non-valued return in choice rule\n");
+            break;
+        case eIllegalValuedReturn:
+            printf("Valued return in procedure rule\n");
+            break;
+        case eWrongLabelClass:
+            printf("Alternative label is wrong type\n");
+            break;
+        case eWrongParameterClass:
+            printf("Parameter is wrong type\n");
+            break;
+        case eWrongDeclaredResultClass:
+            printf("Result type does not match previous use\n");
+            break;
+        case eWrongResultClass:
+            printf("Result value is wrong type\n");
+            break;
+        case eCallStackOverflow:
+            printf("Call stack overflow\n");
+            break;
+        case eNoError:
+            printf("No Error\n");
+            break;
+        case eSslStackOverflow:
+            printf("SSL stack overflow\n");
+            break;
 	}
 
 	++noErrors;
@@ -1370,8 +1381,7 @@ void Error(ErrorCode errCode) {
 }
 
 
-void
-ReadNextChar()
+void ReadNextChar()
 {
 	if (listfp) {
 		if (firstChar)
@@ -1393,8 +1403,7 @@ ReadNextChar()
 }
 
 
-void
-EvaluateNumber()
+void EvaluateNumber()
 {
 	if (nextToken != tInteger || nextTokenText[0] == '\0'
 	    || (strlen(nextTokenText) > maxNumberLength
@@ -1406,8 +1415,7 @@ EvaluateNumber()
 }
 
 
-void
-LookupKeyword()
+void LookupKeyword()
 {
 	char *nt;
 	int i;
@@ -1632,10 +1640,7 @@ void AcceptInputToken() {
 
 /* Emit an output table element to the assembled table */
 
-void
-Emit(value)
-	int value;
-{
+void Emit(int value) {
 	if (outputPointer < maxOutputTableSize) {
 		outputTable[outputPointer++] = value;
 
@@ -1650,11 +1655,7 @@ Emit(value)
 
 /* Fixup a previously emitted table location to a resolved value */
 
-void
-EmitFixup(fixupAddress, value)
-	OutputAddress fixupAddress;
-	int value;
-{
+void EmitFixup(OutputAddress fixupAddress, int value) {
 	if (fixupAddress >= outputPointer
 	    || outputTable[fixupAddress] != nullAddress)
 		assertionFailure;
@@ -1669,29 +1670,21 @@ EmitFixup(fixupAddress, value)
 
 /* Reserve a table location to be fixed up */
 
-void
-EmitNullAddress()
-{
+void EmitNullAddress() {
 	Emit(nullAddress);
 }
 
 
 /* Emit a backward jump address.  Jump addresses are absolute. */
 
-void
-EmitJumpAddress(targetAddress)
-	OutputAddress targetAddress;
-{
+void EmitJumpAddress(OutputAddress targetAddress) {
 	Emit(targetAddress);
 }
 
 
 /* Fixup a forward jump address.  Jump addresses are absolute. */
 
-void
-EmitJumpFixup(jumpAddress)
-	OutputAddress jumpAddress;
-{
+void EmitJumpFixup(OutputAddress jumpAddress) {
 	EmitFixup(jumpAddress, outputPointer);
 }
 
@@ -1712,11 +1705,8 @@ EmitNullCallAddress()
  * values and parameter and result types.				
  */
 
-void
-EnterNewSymbol()
+void EnterNewSymbol()
 {
-	extern char *strsave();
-
 	if ((compoundToken != tIdent && compoundToken != tString)
 	    || strlen(compoundText) == 0)
 		assertionFailure;
@@ -1739,8 +1729,7 @@ EnterNewSymbol()
 
 /* This procedure looks up a symbol (or string) in the symbolTable */
 
-void
-LookupSymbol()
+void LookupSymbol()
 {
 	char ct[BUFSIZ];
 	int h;
@@ -1793,18 +1782,12 @@ EnterSymbolValueFromAddress()
 }
 
 
-void
-SetCurrentSymbol(newIndex)
-	SymbolIndex newIndex;
-{
+void SetCurrentSymbol(SymbolIndex newIndex){
 	symIndex = newIndex;
 }
 
 
-void
-xSetCurrentClass(newClass)
-	SymbolClass newClass;
-{
+void xSetCurrentClass(SymbolClass newClass) {
 	int nextOpValue;
 
 	/* Synchronize operation values */
@@ -1829,10 +1812,7 @@ xSetCurrentClass(newClass)
 }
 
 
-void
-SetNextValueOfCurrentClass(newValue)
-	int newValue;
-{
+void SetNextValueOfCurrentClass(int newValue) {
 	symNextValue[(int)symCurrentClass] = newValue;
 }
 
@@ -2068,9 +2048,7 @@ PopCycle()
 }
 
 
-void
-EmitCycleAddress()
-{
+void EmitCycleAddress() {
 	EmitJumpAddress(cycleAddress[cycleTop]);
 }
 
@@ -2092,10 +2070,7 @@ InitCycleStack()
 
 /* This procedure processes the beginning of a choice */
 
-void
-PushChoice(pushClass)
-	SymbolClass pushClass;
-{
+void PushChoice(SymbolClass pushClass){
 	if (choiceTop < maxChoices) {
 		++choiceTop;
 		choiceClass[choiceTop] = pushClass;
@@ -2136,10 +2111,7 @@ ResolveChoiceMerges()
 }
 
 
-void
-xEnterChoiceLabel(value)
-	int value;
-{
+void xEnterChoiceLabel(int value) {
 	if (choiceTop == 0)
 		assertionFailure;
 
@@ -2152,10 +2124,7 @@ xEnterChoiceLabel(value)
 }
 
 
-Validity
-VerifyChoiceLabel(value)
-	int value;
-{
+Validity VerifyChoiceLabel(int value){
 	u_int i;
 
 	if (choiceTop == 0)
@@ -2194,9 +2163,7 @@ xResolveChoiceTableAddress()
 }
 
 
-void
-EmitChoiceTable()
-{
+void EmitChoiceTable() {
 	u_int i;
 
 	if (choiceTop == 0)
@@ -2213,9 +2180,7 @@ EmitChoiceTable()
 }
 
 
-void
-EmitFirstChoiceAddress()
-{
+void EmitFirstChoiceAddress() {
 	if (choiceTop == 0)
 		assertionFailure;
 
@@ -2233,10 +2198,7 @@ xEmitFirstChoiceValue()
 }
 
 
-void
-ChangeChoiceClass(newClass)
-	SymbolClass newClass;
-{
+void ChangeChoiceClass(SymbolClass newClass) {
 	choiceClass[choiceTop] = newClass;
 }
 
@@ -2255,11 +2217,7 @@ InitChoiceStack()
 
 /* Generates Assembled Constant Definitions for a Class of Symbols */
 
-void
-GenerateClass(class, name)
-	SymbolClass class;
-	char *name;
-{
+void GenerateClass(SymbolClass class, char *name, FILE *fp){
 	SymbolIndex s;
 	SymbolClass c;
 	int flag = 1;
@@ -2279,7 +2237,7 @@ GenerateClass(class, name)
 			 /* A real external symbol and not
 			  * a string synonym, so output it  */
 			if (flag && name != NULL) {
-				fprintf(headerfp, "typedef enum {\n");
+				fprintf(fp, "typedef enum {\n");
 				flag = 0;
 			}
 			if (symValue[s] != lastvalue + 1) {
@@ -2287,14 +2245,14 @@ GenerateClass(class, name)
 						symText[s], symValue[s]);
 			} else
 				(void) strcpy(buf, symText[s]);
-			fprintf(headerfp, "\t%s,%s/* %d */\n",
+			fprintf(fp, "\t%s,%s/* %d */\n",
 				buf, &"\t\t\t\t\t\t"[(strlen(buf)+1)/8],
 				symValue[s]);
 			lastvalue = symValue[s];
 		}
 	}
 	if (!flag && name != NULL)
-		fprintf(headerfp, "} %s;\n", name);
+		fprintf(fp, "} %s;\n", name);
 	lastvalue = -945876;
 }
 
@@ -2309,28 +2267,30 @@ void GenerateSymbolDefinitions() {
 	    fprintf(headerfp, "namespace %s {\n",nameSpace);
 	}
 	fprintf(headerfp, "/* Semantic Operations */\n\n");
-	GenerateClass(cUpdateOp, "TableOperation");   /* Does all operations */
+	GenerateClass(cUpdateOp, "TableOperation",headerfp);   /* Does all operations */
 	fprintf(headerfp, "\n/* Input Tokens */\n\n");
-	GenerateClass(cInput, "InputToken");
+	GenerateClass(cInput, "InputToken",tokenfp);
 	fprintf(headerfp, "\n/* Output Tokens */\n\n");
-	GenerateClass(cOutput, "OutputToken");
+	GenerateClass(cOutput, "OutputToken",headerfp);
 	fprintf(headerfp, "\n/* Input/Output Tokens */\n\n");
-	GenerateClass(cInputOutput, "InputOutputTokens");
+	GenerateClass(cInputOutput, "InputOutputTokens",tokenfp);
 	fprintf(headerfp, "\n/* Error Codes */\n\n");
-	GenerateClass(cError, "ErrorCode");
+	GenerateClass(cError, "ErrorCode",headerfp);
 	fprintf(headerfp, "\n/* Type Values */\n\n");
 	for (s = 0; s != symTop;) {
 		++s;
 		c = symClass[s];
 
 		if (c == cType) {
-			GenerateClass(symValue[s], symText[s]);
+			GenerateClass(symValue[s], symText[s],headerfp);
 			(void) putc('\n', headerfp);
 		}
 	}
 	if (nameSpace){
 	    fprintf(headerfp, "}\n");
 	}
+    fclose(headerfp);
+    fclose(tokenfp);
 }
 
 
@@ -2351,12 +2311,10 @@ void GenerateOutputTable(char * typeName, char *tableName) {
 	}
 
 	fprintf(tablefp, "0\n};\n");
+    fclose(tablefp);
 }
 
-void
-GenerateEntryPoints(enumName)
-	char *enumName;
-{
+void GenerateEntryPoints(char * enumName){
 	SymbolIndex s;
 
 	if (entryfp == NULL)
@@ -2397,6 +2355,8 @@ void SslGenerateCompoundInputToken(InputToken expectedToken) {
 	case tIdent:
 		(void) strcpy(compoundText, "$NIL");
 		break;
+        default:
+            break;
 	}
 }
 
@@ -2521,9 +2481,7 @@ void SslFailure(FailureCode failCode) {
  * if a match is found and false otherwise.		
  */
 
-void
-SslChoice(choiceTag)
-	int choiceTag;
+void SslChoice(int choiceTag)
 {
 	int numberOfChoices;
 	u_int choicePointer;

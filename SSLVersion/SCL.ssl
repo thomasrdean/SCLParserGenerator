@@ -10,9 +10,10 @@ input:
 	tLT		    '<'
     tLE         '<='
     tLSFT       '<<'
+    tOPENX      '</'
 	tGT	    	'>'
     tGE         '>='
-    tRS         '>>'
+    tRSFT       '>>'
 	tASSIGN		'='
 	tEQ		    '=='
 	tNEQ		'!='
@@ -21,7 +22,9 @@ input:
     tROR        '||'
     tBAND       '&'
     tRAND       '&&'
-	tSemicolon	';'
+	tSemicolon 	';'
+    tMinus      '-'
+    tPlus       '+'
 
 	% keywords
     tABSENT        'ABSENT'
@@ -77,9 +80,9 @@ input:
     tVisibleString    'VisibleString'
     tWITH        'WITH'
 
-	tNewLine	'<NL>'
-	tEndOfFile	'<EOF>'
-	tIllegal
+    tNewLine '<NL>  % only for starting symbol, scanner eats these
+    tEndOfFile	'<EOF>'
+    tIllegal
 	;
 
 output:

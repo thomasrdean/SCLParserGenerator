@@ -3,20 +3,17 @@
 #include <memory>
 
 // 
-#include "SCL.sst.h"
 
 #include "SCLScanner.h"
-
-
-
-
 
 class SCLParser {
 
 public:
 
-
+    #include "SCL.sst.h"
+    
     SCLParser();
+    //~SCLParser();
     
     // public interface to the walker.
     void SslWalker();
@@ -88,17 +85,17 @@ private:
     
     /* Input Tokens */
 
-    std::unique_ptr<SCLScanner> scanner;
+    std::unique_ptr<SCLScanner> scanner = nullptr;
     
     /* Compound Input Tokens */
-    static const InputToken firstCompoundToken = tIntegerL; // *fix*
-    static const InputToken lastCompoundToken = tIntegerL;  // *fix*
+    static const SCLScanner::InputToken firstCompoundToken = SCLScanner::tIntegerL; // *fix*
+    static const SCLScanner::InputToken lastCompoundToken = SCLScanner::tIntegerL;  // *fix*
     
     
     /* Input Interface */
     std::ifstream    *infp = nullptr;
-    InputToken nextInputToken = tNewLine;
-    InputToken savedToken;
+    SCLScanner::InputToken nextInputToken = SCLScanner::tNewLine;
+    SCLScanner::InputToken savedToken;
     
     /*
     * The Compound Input Token Buffer:
@@ -106,7 +103,7 @@ private:
     * associated value is saved in the compound token buffer for use by
     * the Semantic Mechanisms of the pass.
     */
-    InputToken compoundToken;
+    SCLScanner::InputToken compoundToken;
     int compoundValue;			// *fix*
     const char * compoundText;		// *fix*
     
@@ -121,13 +118,13 @@ private:
     /* Variables Used in Syntax Error Recovery */
 
     int newInputLine = 0;
-    InputToken savedInputToken;
+    SCLScanner::InputToken savedInputToken;
     
     // prototypes
     void Error(ErrorCode);
     void AcceptInputToken();
     void EmitOutputToken(OutputToken tokenToEmit);
-    void SslGenerateCompoundInputToken(InputToken expectedToken);
+    void SslGenerateCompoundInputToken(SCLScanner::InputToken expectedToken);
     void SslSyntaxError();
     void SslTrace(FILE*);
     void SslFailure(FailureCode);

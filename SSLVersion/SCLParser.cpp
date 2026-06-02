@@ -15,7 +15,7 @@ void SCLParser::setTraceFile(FILE *f){
     tracefp = f;
 }
 
-void SCLParser::setInputFile(std::istream *inFile){
+void SCLParser::setInputFile(std::ifstream *inFile){
     infp = inFile;
 }
 
@@ -76,10 +76,10 @@ void SCLParser::Error(ErrorCode errCode)
 
 void SCLParser::AcceptInputToken()
 {
-    InputToken	acceptedToken;
+    SCLScanner::InputToken	acceptedToken;
     int	inputInt;
     
-    if (nextInputToken == tEndOfFile) {
+    if (nextInputToken == SCLScanner::tEndOfFile) {
         abort();
     }
     
@@ -106,12 +106,12 @@ void SCLParser::AcceptInputToken()
         //nextInputToken = (InputToken)inputInt;
         // TODO: scanerr get next token
         
-        if (nextInputToken == tNewLine) {
+        if (nextInputToken == SCLScanner::tNewLine) {
             /* Update Line Counter and Set Flag */
             newInputLine = 1;
             ++nextLineNumber;
         }
-    } while (nextInputToken == tNewLine);
+    } while (nextInputToken == SCLScanner::tNewLine);
     
     /* Trace Input */
     if (tracefp)
@@ -142,23 +142,23 @@ void SCLParser::EmitOutputToken(OutputToken	tokenToEmit)
 
 /* Syntax Error Handling */
 
-void SCLParser::SslGenerateCompoundInputToken(InputToken expectedToken)
+void SCLParser::SslGenerateCompoundInputToken(SCLScanner::InputToken expectedToken)
 {
-    if (nextInputToken != tSyntaxError && nextInputToken != tEndOfFile)
+    if (nextInputToken != SCLScanner::tSyntaxError && nextInputToken != SCLScanner::tEndOfFile)
         abort();
     
     compoundToken = expectedToken;
     compoundValue = 0;
     
     switch (expectedToken) {
-        case tIntegerL:
+        case SCLScanner::tIntegerL:
             compoundValue = 0;
             compoundText = "0";
             break;
-            case tStringL:
+            case SCLScanner::tStringL:
             	compoundText = "'?'";
             	break;
-            case tIdent:
+            case SCLScanner::tIdent:
             	compoundText = "IL";
             	break;
         default:
@@ -198,36 +198,35 @@ void SCLParser::SslGenerateCompoundInputToken(InputToken expectedToken)
  * been matched.
  */
 
-void SCLParser::SslSyntaxError()
-{
+void SCLParser::SslSyntaxError() {
     if (operation != oInput && operation != oInputAny)
         abort();
     
-    if (nextInputToken == tSyntaxError) {
+    if (nextInputToken == SCLScanner::tSyntaxError) {
         /* Currently recovering from syntax error */
-        if (sslTable[sslPointer] == (int)(tNewLine)
-            || sslTable[sslPointer] == (int)(tSemicolon)) {
+        if (sslTable[sslPointer] == (int)(SCLScanner::tNewLine)
+            || sslTable[sslPointer] == (int)(SCLScanner::tSemicolon)) {
             /* Complete recovery by synchronizing
              input to a new line */
             nextInputToken = savedToken;
             newInputLine = 0;
-            while (nextInputToken != tSemicolon
-                   && nextInputToken != tEndOfFile
+            while (nextInputToken != SCLScanner::tSemicolon
+                   && nextInputToken != SCLScanner::tEndOfFile
                    && !newInputLine)
                 AcceptInputToken();
         }
     } else {
         /* First syntax error on the line */
-        if (sslTable[sslPointer] == (int)(tNewLine)) {
+        if (sslTable[sslPointer] == (int)(SCLScanner::tNewLine)) {
             /* Ignore missing logical newlines */
-        } else if (nextInputToken == tEndOfFile) {
+        } else if (nextInputToken == SCLScanner::tEndOfFile) {
             /* Flag error and terminate processing */
             Error(ePrematureEndOfFile);
             processing = 0;
         } else {
             Error(eSyntaxError);
             savedToken = nextInputToken;
-            nextInputToken = tSyntaxError;
+            nextInputToken = SCLScanner::tSyntaxError;
             lineNumber = nextLineNumber;
         }
     }
@@ -236,7 +235,7 @@ void SCLParser::SslSyntaxError()
      generate a dummy one. */
     if (sslTable[sslPointer] >= (int)(firstCompoundToken)
         && sslTable[sslPointer] <= (int)(lastCompoundToken))
-        SslGenerateCompoundInputToken((InputToken)sslTable[sslPointer]);
+        SslGenerateCompoundInputToken((SCLScanner::InputToken)sslTable[sslPointer]);
 }
 
 
@@ -347,7 +346,7 @@ void SCLParser::SslWalker()
                 ++sslPointer;
                 break;
             case oInputAny:
-                if (nextInputToken != tEndOfFile)
+                if (nextInputToken != SCLScanner::tEndOfFile)
                     AcceptInputToken();
                 else
                 /* Premature end of file */
@@ -403,7 +402,7 @@ void SCLParser::SslWalker()
                 abort();
         }
     }
-    if (nextInputToken != tEndOfFile && !aborted) {
+    if (nextInputToken != SCLScanner::tEndOfFile && !aborted) {
         Error(eExtraneousProgramText);
     }
 }

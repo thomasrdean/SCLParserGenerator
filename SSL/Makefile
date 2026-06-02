@@ -5,8 +5,8 @@ COPTS=		-g -Bstatic
 BIN=	/local/bin
 CFLAGS=		$(COPTS) $(DEFS) $(INCL)
 
-ssl:	ssl.c
-	$(CC) $(CFLAGS) -I../include -o ssl ssl.c
+bin/ssl:	ssl.c
+	$(CC) $(CFLAGS) -I../include -o bin/ssl ssl.c
 
 test:	ssl
 	./ssl ssl.ssl
@@ -17,4 +17,4 @@ install:	ssl
 	install -s -m 755 ssl $(BIN)
 
 clean:
-	-rm -f ssl ssl.sst.c ssl.sst.h ssl.o ssl.entry Makefile.bak
+	-rm -f bin/ssl ssl.sst.c ssl.sst.h ssl.o ssl.entry Makefile.bak

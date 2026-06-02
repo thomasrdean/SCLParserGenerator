@@ -10,7 +10,6 @@
 #include <cstdlib>
 #include <string>
 
-#include "SCL.sst.h"
 #include "SCLScanner.h"
 
 int main(int argc, char * argv[]){
@@ -19,25 +18,19 @@ int main(int argc, char * argv[]){
         exit(1);
     }
 
-    std::ifstream iFile(argv[1]);
+    SCLScanner scanner;
 
-    if (! iFile.is_open()){
+    if (!scanner.pushFile(argv[1])){
         std::cerr << argv[0] << ": could not open " << argv[1] << "for read" << std::endl;
         exit(1);
     }
 
-    SCLScanner scanner;
+    SCLScanner::InputToken theToken = scanner.nextToken();
 
-    scanner.setFile(&iFile);
-
-    InputToken theToken = scanner.nextToken();
-
-    while (theToken != tEndOfFile){
+    while (theToken != SCLScanner::tEndOfFile){
         std::cout << scanner.tokenToString(theToken) << std::endl;
     }
 
-
-    iFile.close();
 }
 
 
